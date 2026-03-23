@@ -1,36 +1,93 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Noria
 
-## Getting Started
+Base produit pour une application interne de gestion des demandes et workflows d'approbation.
 
-First, run the development server:
+## Stack retenue
+
+- `Next.js` pour l'interface et les routes serveur
+- `Supabase` pour Postgres, Auth, Storage et temps reel
+- `Vercel` pour l'hebergement et le cron
+- `Resend` ou `Postmark` pour les emails transactionnels
+
+## Ce qui est deja pose
+
+- une page d'accueil produit orientee SaaS interne
+- un shell applicatif interne avec les routes `workspace`, `approvals`, `requests/new`, `requests/[id]`, `messages`
+- la structure de domaine du MVP: demandes, templates, inbox, audit, automatisations
+- les clients Supabase navigateur, serveur et service role
+- un endpoint cron securise: `/api/cron/process-reminders`
+- des endpoints live: `/api/messages` et `/api/notifications`
+- des endpoints workflow live: `/api/requests` et `/api/requests/[id]/decision`
+- une messagerie client avec insertion optimistic + abonnement Realtime
+- un moteur d'approbation live: creation de demande, instanciation des etapes, decisions et audit
+- une page de connexion interne `/login` avec login/logout Supabase
+- une structure serveur pour les emails immediats via `EMAIL_PROVIDER=console|resend`
+- un exemple `vercel.json` pour executer le cron toutes les 5 minutes
+- une migration Supabase versionnee dans `supabase/migrations/20260323190000_init_workflow_core.sql`
+
+## Demarrage local
+
+1. Installer les dependances:
+
+```bash
+npm install
+```
+
+2. Copier les variables d'environnement:
+
+```bash
+cp .env.example .env.local
+```
+
+3. Lancer le projet:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+4. Ouvrir:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- `http://localhost:3000/login` pour la connexion interne
+- `http://localhost:3000/workspace` pour le cockpit
+- `http://localhost:3000/approvals` pour l'inbox approbateur
+- `http://localhost:3000/messages` pour la messagerie
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Scripts utiles
 
-## Learn More
+- `npm run lint`
+- `npm run typecheck`
+- `npm run supabase:start`
+- `npm run supabase:stop`
+- `npm run supabase:reset`
+- `npm run supabase:types`
 
-To learn more about Next.js, take a look at the following resources:
+## Variables d'environnement
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `APP_BASE_URL`
+- `EMAIL_PROVIDER`
+- `EMAIL_FROM`
+- `EMAIL_REPLY_TO`
+- `RESEND_API_KEY`
+- `CRON_SECRET`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Cron
 
-## Deploy on Vercel
+Le cron appelle `GET /api/cron/process-reminders`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- en `Vercel Pro`, le scheduler peut tourner toutes les 5 minutes comme dans `vercel.json`
+- en `Vercel Hobby`, tu peux reutiliser le meme endpoint avec `cron-job.org`
+- la logique metier ne doit pas vivre dans le scheduler: il ne fait que reveiller le moteur
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Etape suivante recommandee
+
+1. brancher un seed de démonstration complet avec utilisateurs réels
+2. ajouter le builder admin de workflows personnalisés
+3. brancher les pieces jointes Supabase Storage
+
+## Guides ajoutes
+
+- installation et deploiement: `docs/setup-fast-track.md`
+- SQL initial workflow + messagerie: `docs/sql/2026-03-23_init_workflow_core.sql`

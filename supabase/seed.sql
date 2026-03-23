@@ -1,0 +1,2 @@
+-- Supabase seed placeholder.
+-- Reference data is already inserted by the init migration.
