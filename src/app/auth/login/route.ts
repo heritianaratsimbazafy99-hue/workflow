@@ -36,7 +36,10 @@ export async function POST(request: NextRequest) {
   });
 
   if (error) {
-    return redirectTo(request, "/login", { error: "auth_failed" });
+    return redirectTo(request, "/login", {
+      error: "auth_failed",
+      reason: error.message,
+    });
   }
 
   return response;

@@ -13,6 +13,10 @@ export default async function LoginPage({
     typeof resolvedSearchParams.error === "string"
       ? resolvedSearchParams.error
       : null;
+  const errorReason =
+    typeof resolvedSearchParams.reason === "string"
+      ? resolvedSearchParams.reason
+      : null;
 
   return (
     <main className="min-h-screen bg-transparent px-4 py-6 sm:px-6 lg:px-8">
@@ -106,7 +110,7 @@ export default async function LoginPage({
                     <div className="rounded-[22px] border border-red-200 bg-red-50 px-4 py-4 text-sm leading-6 text-red-700">
                       {errorCode === "missing_credentials"
                         ? "Email ou mot de passe manquant."
-                        : "Connexion refusée. Vérifie l’email, le mot de passe et l’état du compte Supabase."}
+                        : `Connexion refusée. ${errorReason ?? "Vérifie l’email, le mot de passe et l’état du compte Supabase."}`}
                     </div>
                   ) : null}
 
