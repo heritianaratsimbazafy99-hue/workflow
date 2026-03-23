@@ -1,16 +1,17 @@
-import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { NextRequest, NextResponse } from "next/server";
+import { createSupabaseRouteHandlerClient } from "@/lib/supabase/server";
 
-function redirectTo(request: Request, pathname: string) {
+function redirectTo(request: NextRequest, pathname: string) {
   return NextResponse.redirect(new URL(pathname, request.url), {
     status: 303,
   });
 }
 
-export async function POST(request: Request) {
-  const supabase = await createSupabaseServerClient();
+export async function POST(request: NextRequest) {
+  const response = redirectTo(request, "/login");
+  const supabase = createSupabaseRouteHandlerClient(request, response);
 
   await supabase.auth.signOut();
 
-  return redirectTo(request, "/login");
+  return response;
 }

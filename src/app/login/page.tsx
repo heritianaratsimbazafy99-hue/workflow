@@ -2,8 +2,17 @@ import Link from "next/link";
 import { ArrowLeft, LockKeyhole, Workflow } from "lucide-react";
 import { resolveRuntimeActor } from "@/lib/workflow/runtime";
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const actor = await resolveRuntimeActor();
+  const resolvedSearchParams = await searchParams;
+  const errorCode =
+    typeof resolvedSearchParams.error === "string"
+      ? resolvedSearchParams.error
+      : null;
 
   return (
     <main className="min-h-screen bg-transparent px-4 py-6 sm:px-6 lg:px-8">
@@ -93,6 +102,14 @@ export default async function LoginPage() {
                 </div>
               ) : (
                 <form action="/auth/login" method="post" className="mt-8 space-y-5">
+                  {errorCode ? (
+                    <div className="rounded-[22px] border border-red-200 bg-red-50 px-4 py-4 text-sm leading-6 text-red-700">
+                      {errorCode === "missing_credentials"
+                        ? "Email ou mot de passe manquant."
+                        : "Connexion refusée. Vérifie l’email, le mot de passe et l’état du compte Supabase."}
+                    </div>
+                  ) : null}
+
                   <label className="block">
                     <span className="text-sm font-medium text-[color:var(--foreground)]">
                       Email professionnel

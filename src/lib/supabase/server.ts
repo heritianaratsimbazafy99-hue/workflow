@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import type { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServiceRoleKey } from "@/lib/env/server";
 import { getPublicSupabaseEnv } from "@/lib/supabase/config";
 
@@ -41,4 +42,30 @@ export function createSupabaseServiceRoleClient() {
       persistSession: false,
     },
   });
+}
+
+export function createSupabaseRouteHandlerClient(
+  request: NextRequest,
+  response: NextResponse,
+) {
+  const { NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY } =
+    getPublicSupabaseEnv();
+
+  return createServerClient(
+    NEXT_PUBLIC_SUPABASE_URL,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            request.cookies.set(name, value);
+            response.cookies.set(name, value, options);
+          });
+        },
+      },
+    },
+  );
 }
