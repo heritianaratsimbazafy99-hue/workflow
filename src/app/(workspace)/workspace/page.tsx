@@ -5,17 +5,8 @@ import {
   CheckCheck,
   CircleAlert,
   FolderClock,
-  MessageSquareMore,
 } from "lucide-react";
-import {
-  approvalInbox,
-  automationRules,
-  auditTimeline,
-  dashboardMetrics,
-  requestDetails,
-  requestTypes,
-  workspaceAlerts,
-} from "@/lib/workflow/mock-data";
+import { automationRules } from "@/lib/workflow/mock-data";
 import {
   DueBadge,
   PageHeader,
@@ -26,14 +17,17 @@ import {
   SummaryStat,
   SurfaceCard,
 } from "@/components/workspace/ui";
+import { getWorkspaceDashboardData } from "@/lib/workflow/engine";
 
-export default function WorkspaceDashboardPage() {
+export default async function WorkspaceDashboardPage() {
+  const dashboard = await getWorkspaceDashboardData();
+
   return (
     <div className="space-y-6">
       <PageHeader
         eyebrow="Pilotage central"
         title="Tableau de bord des demandes internes"
-        description="Tu as ici le coeur opératoire du produit: demandes ouvertes, files d'approbation, alertes moteur, automatisations et conversations liées aux dossiers."
+        description={`Tu as ici le coeur opératoire du produit: demandes ouvertes, files d'approbation, alertes moteur et journal live. Mode ${dashboard.mode === "live" ? "Supabase connecté" : "démo"}.`}
         actions={
           <>
             <PillLink href="/requests/new" label="Nouvelle demande" tone="primary" />
@@ -43,7 +37,7 @@ export default function WorkspaceDashboardPage() {
       />
 
       <div className="grid gap-4 xl:grid-cols-4">
-        {dashboardMetrics.map((metric, index) => {
+        {dashboard.metrics.map((metric, index) => {
           const Icon = [FolderClock, CheckCheck, BellRing, CircleAlert][index];
 
           return (
@@ -65,43 +59,50 @@ export default function WorkspaceDashboardPage() {
             actionHref="/approvals"
             actionLabel="Ouvrir l'inbox"
           />
-          <div className="space-y-3">
-            {approvalInbox.map((item) => (
-              <Link
-                key={item.id}
-                href={`/requests/${item.id}`}
-                className="block rounded-[22px] border border-[color:var(--line)] bg-white/80 p-4"
-              >
-                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                  <div className="space-y-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono text-xs text-[color:var(--muted)]">
-                        {item.id}
-                      </span>
-                      <StatusBadge status={item.status} />
-                      <PriorityBadge priority={item.priority} />
+          {dashboard.items.length === 0 ? (
+            <div className="rounded-[22px] border border-dashed border-[color:var(--line)] bg-white/75 p-5 text-sm leading-6 text-[color:var(--muted)]">
+              Aucune approbation active pour le moment. Le cockpit est bien branché, mais
+              ta file personnelle est vide.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {dashboard.items.map((item) => (
+                <Link
+                  key={item.id}
+                  href={`/requests/${item.id}`}
+                  className="block rounded-[22px] border border-[color:var(--line)] bg-white/80 p-4"
+                >
+                  <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                    <div className="space-y-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-mono text-xs text-[color:var(--muted)]">
+                          {item.id}
+                        </span>
+                        <StatusBadge status={item.status} />
+                        <PriorityBadge priority={item.priority} />
+                      </div>
+                      <div>
+                        <p className="text-lg font-medium text-[color:var(--foreground)]">
+                          {item.title}
+                        </p>
+                        <p className="mt-1 text-sm text-[color:var(--muted)]">
+                          {item.typeName} · {item.department} · {item.requester}
+                          {item.amount ? ` · ${item.amount}` : ""}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-lg font-medium text-[color:var(--foreground)]">
-                        {item.title}
-                      </p>
-                      <p className="mt-1 text-sm text-[color:var(--muted)]">
-                        {item.typeName} · {item.department} · {item.requester}
-                        {item.amount ? ` · ${item.amount}` : ""}
-                      </p>
-                    </div>
-                  </div>
 
-                  <div className="flex flex-col items-start gap-2 xl:items-end">
-                    <DueBadge state={item.dueState} label={item.dueLabel} />
-                    <span className="text-sm text-[color:var(--muted)]">
-                      Étape: {item.currentStep}
-                    </span>
+                    <div className="flex flex-col items-start gap-2 xl:items-end">
+                      <DueBadge state={item.dueState} label={item.dueLabel} />
+                      <span className="text-sm text-[color:var(--muted)]">
+                        Étape: {item.currentStep}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              </Link>
-            ))}
-          </div>
+                </Link>
+              ))}
+            </div>
+          )}
         </SurfaceCard>
 
         <SurfaceCard>
@@ -110,7 +111,7 @@ export default function WorkspaceDashboardPage() {
             description="Ce qui mérite ton attention immédiate côté SLA, charge et blocages."
           />
           <div className="space-y-3">
-            {workspaceAlerts.map((alert) => (
+            {dashboard.alerts.map((alert) => (
               <div
                 key={alert.id}
                 className={`rounded-[22px] border p-4 ${
@@ -133,31 +134,31 @@ export default function WorkspaceDashboardPage() {
 
           <div className="mt-6 rounded-[24px] border border-[color:var(--line)] bg-white/80 p-4">
             <p className="text-xs uppercase tracking-[0.22em] text-[color:var(--muted)]">
-              Conversations en attente
+              Journal récent
             </p>
             <div className="mt-4 space-y-3">
-              {requestDetails.slice(0, 3).map((request) => (
-                <div
-                  key={request.reference}
-                  className="flex items-center justify-between gap-3 rounded-2xl border border-[color:var(--line)] bg-[color:var(--surface)] px-4 py-3"
-                >
-                  <div>
-                    <p className="font-medium text-[color:var(--foreground)]">
-                      {request.title}
-                    </p>
-                    <p className="text-sm text-[color:var(--muted)]">
-                      {request.comments.length} commentaires · {request.participants.length} participants
-                    </p>
-                  </div>
-                  <Link
-                    href="/messages"
-                    className="inline-flex items-center gap-2 text-sm font-medium text-[color:var(--foreground)]"
-                  >
-                    <MessageSquareMore className="h-4 w-4" />
-                    Ouvrir
-                  </Link>
+              {dashboard.history.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-[color:var(--line)] bg-[color:var(--surface)] px-4 py-4 text-sm text-[color:var(--muted)]">
+                  Aucune activité récente à afficher pour le moment.
                 </div>
-              ))}
+              ) : (
+                dashboard.history.slice(0, 4).map((event) => (
+                  <div
+                    key={event.id}
+                    className="flex items-center justify-between gap-3 rounded-2xl border border-[color:var(--line)] bg-[color:var(--surface)] px-4 py-3"
+                  >
+                    <div>
+                      <p className="font-medium text-[color:var(--foreground)]">
+                        {event.actor} · {event.action}
+                      </p>
+                      <p className="text-sm text-[color:var(--muted)]">{event.detail}</p>
+                    </div>
+                    <span className="font-mono text-xs text-[color:var(--muted)]">
+                      {event.at}
+                    </span>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </SurfaceCard>
@@ -172,7 +173,7 @@ export default function WorkspaceDashboardPage() {
             actionLabel="Créer une demande"
           />
           <div className="grid gap-3 sm:grid-cols-2">
-            {requestTypes.map((requestType) => (
+            {dashboard.requestTypes.map((requestType) => (
               <div
                 key={requestType.id}
                 className="rounded-[22px] border border-[color:var(--line)] bg-white/80 p-4"
@@ -233,7 +234,7 @@ export default function WorkspaceDashboardPage() {
             </div>
 
             <div className="space-y-3">
-              {auditTimeline.map((event) => (
+              {dashboard.history.map((event) => (
                 <div
                   key={event.id}
                   className="rounded-[22px] border border-[color:var(--line)] bg-[color:var(--surface-strong)] p-4"
@@ -258,14 +259,14 @@ export default function WorkspaceDashboardPage() {
 
       <SurfaceCard>
         <SectionTitle
-          title="Base technique prête à brancher"
-          description="Le repo est prêt pour la prochaine étape: connecter les pages à Supabase et remplacer progressivement les jeux de données mockés."
+          title="Base technique en transition live"
+          description="Le cockpit, les approvals et la messagerie sont maintenant branchés. Les dernières briques à finaliser sont l'admin workflow, les pièces jointes et le scheduler final."
         />
         <div className="grid gap-3 md:grid-cols-3">
           {[
-            "Migration SQL versionnée pour workflow, notifications et messagerie.",
-            "Shell applicatif interne avec pages dédiées pilotage, approvals et messages.",
-            "Cron sécurisé déjà exposé pour les relances et escalades.",
+            "Migration SQL versionnée pour workflow, notifications, audit et messagerie.",
+            "Cockpit live branché à Supabase pour demandes, approvals et journal.",
+            "Endpoint cron conservé, scheduler final volontairement repoussé à la fin du projet.",
           ].map((item) => (
             <div
               key={item}

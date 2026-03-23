@@ -1,10 +1,12 @@
 import {
   approvalInbox,
   auditTimeline,
+  dashboardMetrics,
   getConversationMessages,
   getConversationPreview,
   getRequestDetail,
   requestTypes as mockRequestTypes,
+  workspaceAlerts,
   workflowTemplates as mockWorkflowTemplates,
 } from "@/lib/workflow/mock-data";
 import { dispatchNotifications } from "@/lib/notifications/service";
@@ -21,12 +23,14 @@ import type {
   AuditEvent,
   ConversationMessage,
   ConversationPreview,
+  DashboardMetric,
   InboxItem,
   RequestDetail,
   RequestPriority,
   RequestType,
   WorkflowTemplate,
   WorkflowStep,
+  WorkspaceAlert,
 } from "@/lib/workflow/types";
 
 type DepartmentRow = {
@@ -198,6 +202,16 @@ type ApprovalInboxResult = {
   mode: RuntimeMode;
   actor: RuntimeActor;
   items: InboxItem[];
+  history: AuditEvent[];
+};
+
+type WorkspaceDashboardResult = {
+  mode: RuntimeMode;
+  actor: RuntimeActor;
+  metrics: DashboardMetric[];
+  items: InboxItem[];
+  alerts: WorkspaceAlert[];
+  requestTypes: CreationCatalog["requestTypes"];
   history: AuditEvent[];
 };
 
@@ -484,6 +498,171 @@ export async function getApprovalsInboxData(): Promise<ApprovalInboxResult> {
     history: mapAuditRowsToView(
       (auditResult.data as AuditLogRow[] | null) ?? [],
       profileById,
+    ),
+  };
+}
+
+export async function getWorkspaceDashboardData(): Promise<WorkspaceDashboardResult> {
+  const actor = await resolveRuntimeActor();
+
+  if (!canUseSupabaseLiveMode(actor)) {
+    return {
+      mode: "demo",
+      actor,
+      metrics: dashboardMetrics,
+      items: approvalInbox,
+      alerts: workspaceAlerts,
+      requestTypes: mockRequestTypes.map((item) => ({
+        ...item,
+        code: item.id.replace("-request", ""),
+      })),
+      history: auditTimeline,
+    };
+  }
+
+  const service = createSupabaseServiceRoleClient();
+  const [catalog, approvals] = await Promise.all([
+    getWorkflowCreationCatalog(),
+    getApprovalsInboxData(),
+  ]);
+
+  const [
+    requestsResult,
+    unreadNotificationsResult,
+    overdueStepsResult,
+    auditResult,
+  ] = await Promise.all([
+    service.from("requests").select("*").order("created_at", { ascending: false }).limit(60),
+    service
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", actor.id)
+      .is("read_at", null),
+    service
+      .from("request_step_instances")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending")
+      .lt("due_at", new Date().toISOString()),
+    service
+      .from("audit_logs")
+      .select("id, actor_id, entity_type, entity_id, action, payload, created_at")
+      .eq("entity_type", "request")
+      .order("created_at", { ascending: false })
+      .limit(8),
+  ]);
+
+  const requests = (requestsResult.data as RequestRow[] | null) ?? [];
+  const unreadNotifications = unreadNotificationsResult.count ?? 0;
+  const overdueSteps = overdueStepsResult.count ?? 0;
+  const activeRequests = requests.filter((request) =>
+    ["submitted", "in_review", "needs_changes"].includes(request.status),
+  ).length;
+  const approvedThisWeek = requests.filter((request) => {
+    if (!["approved", "completed"].includes(request.status)) {
+      return false;
+    }
+
+    const referenceDate = request.decided_at ?? request.updated_at;
+
+    return new Date(referenceDate).getTime() >= Date.now() - 7 * 24 * 60 * 60 * 1000;
+  }).length;
+  const requestsNeedingChanges = requests.filter(
+    (request) => request.status === "needs_changes",
+  ).length;
+  const requestsWithoutAssignee = requests.filter(
+    (request) => request.status === "in_review" && !request.current_assignee_id,
+  ).length;
+
+  const auditRows = (auditResult.data as AuditLogRow[] | null) ?? [];
+  const auditActorIds = uniqueValues(
+    auditRows.map((item) => item.actor_id).filter((value): value is string => Boolean(value)),
+  );
+  const { data: auditProfilesResult } =
+    auditActorIds.length > 0
+      ? await service
+          .from("profiles")
+          .select("id, email, full_name, role, department_id, job_title")
+          .in("id", auditActorIds)
+      : { data: [] };
+
+  const metrics: DashboardMetric[] = [
+    {
+      label: "Demandes actives",
+      value: String(activeRequests),
+      trend: `${requests.length} dossiers suivis`,
+      tone: activeRequests > 0 ? "warning" : "good",
+    },
+    {
+      label: "Approbations à traiter",
+      value: String(approvals.items.length),
+      trend:
+        approvals.items.length > 0
+          ? "dans ta file maintenant"
+          : "aucune en attente",
+      tone: approvals.items.length > 0 ? "warning" : "good",
+    },
+    {
+      label: "Approuvées cette semaine",
+      value: String(approvedThisWeek),
+      trend: "sur les 7 derniers jours",
+      tone: "good",
+    },
+    {
+      label: "Notifications non lues",
+      value: String(unreadNotifications),
+      trend: overdueSteps > 0 ? `${overdueSteps} étapes en retard` : "aucun retard critique",
+      tone: unreadNotifications > 0 || overdueSteps > 0 ? "warning" : "neutral",
+    },
+  ];
+
+  const alerts: WorkspaceAlert[] = [];
+
+  if (overdueSteps > 0) {
+    alerts.push({
+      id: "overdue-steps",
+      title: `${overdueSteps} étape(s) hors SLA`,
+      detail: "Les relances automatiques sont prêtes, mais le scheduler final sera réactivé en fin de projet.",
+      tone: "critical",
+    });
+  }
+
+  if (requestsNeedingChanges > 0) {
+    alerts.push({
+      id: "needs-changes",
+      title: `${requestsNeedingChanges} demande(s) à corriger`,
+      detail: "Des dossiers ont été renvoyés au demandeur et attendent une mise à jour métier.",
+      tone: "warning",
+    });
+  }
+
+  if (requestsWithoutAssignee > 0) {
+    alerts.push({
+      id: "no-assignee",
+      title: `${requestsWithoutAssignee} dossier(s) sans propriétaire`,
+      detail: "Certaines demandes sont en revue sans approbateur courant. Il faudra compléter les règles dynamiques côté admin.",
+      tone: "warning",
+    });
+  }
+
+  if (alerts.length === 0) {
+    alerts.push({
+      id: "all-green",
+      title: "Pipeline sain",
+      detail: "Aucun blocage majeur détecté sur les demandes, approbations et alertes moteur.",
+      tone: "good",
+    });
+  }
+
+  return {
+    mode: "live",
+    actor,
+    metrics,
+    items: approvals.items,
+    alerts,
+    requestTypes: catalog.requestTypes,
+    history: mapAuditRowsToView(
+      auditRows,
+      toMap((auditProfilesResult as ProfileRow[] | null) ?? [], (item) => item.id),
     ),
   };
 }
