@@ -7,6 +7,7 @@ Base produit pour une application interne de gestion des demandes et workflows d
 - `Next.js` pour l'interface et les routes serveur
 - `Supabase` pour Postgres, Auth, Storage et temps reel
 - `Vercel` pour l'hebergement et le cron
+- `Vercel` pour l'hebergement
 - `Resend` ou `Postmark` pour les emails transactionnels
 
 ## Ce qui est deja pose
@@ -22,7 +23,7 @@ Base produit pour une application interne de gestion des demandes et workflows d
 - un moteur d'approbation live: creation de demande, instanciation des etapes, decisions et audit
 - une page de connexion interne `/login` avec login/logout Supabase
 - une structure serveur pour les emails immediats via `EMAIL_PROVIDER=console|resend`
-- un exemple `vercel.json` pour executer le cron toutes les 5 minutes
+- un `vercel.json` compatible `Vercel Hobby` sans cron actif pour le moment
 - une migration Supabase versionnee dans `supabase/migrations/20260323190000_init_workflow_core.sql`
 
 ## Demarrage local
@@ -77,8 +78,8 @@ npm run dev
 
 Le cron appelle `GET /api/cron/process-reminders`.
 
-- en `Vercel Pro`, le scheduler peut tourner toutes les 5 minutes comme dans `vercel.json`
-- en `Vercel Hobby`, tu peux reutiliser le meme endpoint avec `cron-job.org`
+- en `Vercel Hobby`, aucun cron n'est active dans `vercel.json` pour eviter le blocage de deploy
+- l'endpoint est conserve et sera rebranche plus tard avec `Vercel Pro` ou un scheduler externe
 - la logique metier ne doit pas vivre dans le scheduler: il ne fait que reveiller le moteur
 
 ## Etape suivante recommandee

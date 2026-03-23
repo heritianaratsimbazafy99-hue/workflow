@@ -191,12 +191,13 @@ vercel --prod
 
 ## 9. Cron en production
 
-Le projet contient deja `vercel.json` avec un cron toutes les 5 minutes.
+Pour le moment, `vercel.json` ne declare aucun cron afin de rester compatible avec `Vercel Hobby`.
 
 Le point important:
 
-- si tu es sur Vercel Pro, garde Vercel Cron
-- si tu es sur Vercel Hobby, utilise le meme endpoint avec `cron-job.org`
+- l'endpoint cron existe deja dans l'application
+- le scheduler sera rebranche a la fin du projet
+- plus tard, tu pourras choisir `Vercel Pro` ou un scheduler externe
 
 L'URL a appeler sera:
 
@@ -227,6 +228,7 @@ Le prochain bloc a construire est:
 2. builder admin pour les workflows personnalisés
 3. upload de pièces jointes dans Supabase Storage
 4. dashboard analytics branché à la vraie base
+5. rebrancher le scheduler cron en fin de projet
 
 Quand tu veux, je te prepare l'etape suivante avec:
 
