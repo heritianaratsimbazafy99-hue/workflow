@@ -83,8 +83,18 @@ export async function WorkspaceFrame({ children }: { children: ReactNode }) {
                           .slice(0, 2)}
                       </div>
                       <div>
-                        <p className="text-sm font-medium">{actor.fullName}</p>
-                        <p className="text-xs text-white/65">{actor.roleLabel}</p>
+                        <p
+                          title={actor.fullName}
+                          className="max-w-[12rem] truncate text-sm font-medium"
+                        >
+                          {actor.fullName}
+                        </p>
+                        <p
+                          title={actor.roleLabel}
+                          className="max-w-[12rem] truncate text-xs text-white/65"
+                        >
+                          {actor.roleLabel}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center">

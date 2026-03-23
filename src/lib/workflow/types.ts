@@ -94,6 +94,8 @@ export const currentUserSchema = z.object({
   fullName: z.string(),
   email: z.string().email(),
   roleLabel: z.string(),
+  username: z.string().nullable().default(null),
+  appRole: z.enum(["admin", "manager", "employee"]).default("employee"),
 });
 
 export const notificationItemSchema = z.object({
@@ -156,6 +158,8 @@ export const conversationMessageSchema = z.object({
   createdAt: z.string(),
   kind: z.enum(["text", "system"]),
   isOwn: z.boolean(),
+  mentionLabels: z.array(z.string()).default([]),
+  readCount: z.number().int().nonnegative().default(0),
 });
 
 export const conversationPreviewSchema = z.object({
@@ -175,6 +179,8 @@ export const requestDetailSchema = z.object({
   title: z.string(),
   typeName: z.string(),
   requester: z.string(),
+  requesterFullName: z.string().nullable().default(null),
+  requesterHandle: z.string().nullable().default(null),
   requesterRole: z.string(),
   department: z.string(),
   amount: z.string().nullable(),
@@ -191,10 +197,22 @@ export const requestDetailSchema = z.object({
   steps: z.array(requestStepInstanceSchema),
   comments: z.array(requestCommentSchema),
   attachments: z.array(requestAttachmentSchema),
+  customFields: z
+    .array(
+      z.object({
+        key: z.string(),
+        label: z.string(),
+        value: z.string(),
+        section: z.string(),
+      }),
+    )
+    .default([]),
   conversationId: z.string(),
 });
 
 export const formFieldSchema = z.object({
+  id: z.string().default(""),
+  key: z.string().default("field"),
   label: z.string(),
   type: z.enum([
     "text",
@@ -207,9 +225,13 @@ export const formFieldSchema = z.object({
   ]),
   helper: z.string(),
   required: z.boolean(),
+  placeholder: z.string().nullable().default(null),
+  options: z.array(z.string()).default([]),
+  width: z.enum(["full", "half"]).default("full"),
 });
 
 export const formSectionSchema = z.object({
+  key: z.string().default("general"),
   title: z.string(),
   description: z.string(),
   fields: z.array(formFieldSchema).min(1),

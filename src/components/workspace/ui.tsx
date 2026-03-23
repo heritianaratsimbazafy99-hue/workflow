@@ -165,18 +165,25 @@ export function SummaryStat({
   label,
   value,
   icon: Icon,
+  valueTitle,
+  valueClassName = "",
 }: {
   label: string;
   value: string;
   icon: LucideIcon;
+  valueTitle?: string;
+  valueClassName?: string;
 }) {
   return (
-    <div className="rounded-[24px] border border-[color:var(--line)] bg-white/80 p-4">
+    <div className="min-w-0 rounded-[24px] border border-[color:var(--line)] bg-white/80 p-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-[color:var(--muted)]">{label}</p>
         <Icon className="h-4 w-4 text-[color:var(--muted)]" />
       </div>
-      <p className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-[color:var(--foreground)]">
+      <p
+        title={valueTitle}
+        className={`mt-3 min-w-0 overflow-hidden text-3xl font-semibold tracking-[-0.04em] text-[color:var(--foreground)] text-ellipsis whitespace-nowrap ${valueClassName}`}
+      >
         {value}
       </p>
     </div>

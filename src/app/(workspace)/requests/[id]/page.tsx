@@ -68,7 +68,13 @@ export default async function RequestDetailPage({
 
       <div className="grid gap-4 md:grid-cols-4">
         <SummaryStat label="Type" value={request.typeName} icon={FileText} />
-        <SummaryStat label="Demandeur" value={request.requester} icon={Users} />
+        <SummaryStat
+          label="Demandeur"
+          value={request.requester}
+          valueTitle={request.requesterFullName ?? request.requester}
+          valueClassName="truncate text-[2.15rem] leading-none"
+          icon={Users}
+        />
         <SummaryStat label="Montant" value={request.amount ?? "n/a"} icon={ShieldCheck} />
         <SummaryStat label="Pièces" value={String(request.attachments.length)} icon={Paperclip} />
       </div>
@@ -86,7 +92,10 @@ export default async function RequestDetailPage({
                   Informations clés
                 </p>
                 <div className="mt-4 space-y-2 text-sm leading-6 text-[color:var(--foreground)]">
-                  <p>Demandeur: {request.requester}</p>
+                  <p title={request.requesterFullName ?? request.requester}>
+                    Demandeur: {request.requesterFullName ?? request.requester}
+                    {request.requesterHandle ? ` (@${request.requesterHandle})` : ""}
+                  </p>
                   <p>Rôle: {request.requesterRole}</p>
                   <p>Département: {request.department}</p>
                   <p>Soumise le: {request.submittedAt}</p>
@@ -149,6 +158,37 @@ export default async function RequestDetailPage({
                 </div>
               ))}
             </div>
+          </SurfaceCard>
+
+          <SurfaceCard>
+            <SectionTitle
+              title="Données métier"
+              description="Les champs dynamiques du type de demande restent lisibles dans le dossier."
+            />
+            {request.customFields.length === 0 ? (
+              <div className="rounded-[22px] border border-dashed border-[color:var(--line)] bg-white/75 p-4 text-sm leading-6 text-[color:var(--muted)]">
+                Aucun champ métier supplémentaire renseigné pour cette demande.
+              </div>
+            ) : (
+              <div className="grid gap-4 lg:grid-cols-2">
+                {request.customFields.map((field) => (
+                  <div
+                    key={field.key}
+                    className="rounded-[22px] border border-[color:var(--line)] bg-white/80 p-4"
+                  >
+                    <p className="text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">
+                      {field.section}
+                    </p>
+                    <p className="mt-3 text-sm font-medium text-[color:var(--foreground)]">
+                      {field.label}
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-[color:var(--muted)]">
+                      {field.value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
           </SurfaceCard>
 
           <SurfaceCard>

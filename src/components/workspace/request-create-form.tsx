@@ -3,7 +3,12 @@
 import { useMemo, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Bot, SendHorizonal, Waypoints } from "lucide-react";
-import type { RequestPriority, RequestType, WorkflowTemplate } from "@/lib/workflow/types";
+import type {
+  FormSection,
+  RequestPriority,
+  RequestType,
+  WorkflowTemplate,
+} from "@/lib/workflow/types";
 
 type RequestTypeOption = Pick<
   RequestType,
@@ -25,10 +30,12 @@ export function RequestCreateForm({
   mode,
   requestTypes,
   templates,
+  formSectionsByRequestType,
 }: {
   mode: "demo" | "live";
   requestTypes: RequestTypeOption[];
   templates: TemplateOption[];
+  formSectionsByRequestType: Record<string, FormSection[]>;
 }) {
   const router = useRouter();
   const [requestTypeCode, setRequestTypeCode] = useState(
@@ -38,6 +45,7 @@ export function RequestCreateForm({
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
   const [priority, setPriority] = useState<RequestPriority>("normal");
+  const [dynamicFields, setDynamicFields] = useState<Record<string, string | boolean>>({});
   const [feedback, setFeedback] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -59,12 +67,21 @@ export function RequestCreateForm({
     filteredTemplates.find((template) => template.id === templateId) ??
     filteredTemplates[0] ??
     null;
+  const selectedRequestType =
+    requestTypes.find((requestType) => requestType.code === requestTypeCode) ?? null;
+  const activeFormSections =
+    (selectedRequestType &&
+      (formSectionsByRequestType[selectedRequestType.id] ??
+        formSectionsByRequestType[selectedRequestType.code])) ||
+    formSectionsByRequestType[requestTypeCode] ||
+    [];
 
   function handleTypeChange(nextCode: string) {
     setRequestTypeCode(nextCode);
     const nextTemplate =
       templates.find((template) => template.requestTypeCode === nextCode) ?? null;
     setTemplateId(nextTemplate?.id ?? null);
+    setDynamicFields({});
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -90,6 +107,7 @@ export function RequestCreateForm({
           description,
           amount: amount.trim().length > 0 ? Number(amount) : null,
           priority,
+          dynamicFields,
         }),
       });
 
@@ -208,6 +226,39 @@ export function RequestCreateForm({
               className="w-full rounded-2xl border border-[color:var(--line)] bg-[color:var(--surface)] px-4 py-3 text-sm leading-7 outline-none placeholder:text-[color:var(--muted)]"
             />
           </Field>
+
+          {activeFormSections.map((section) => (
+            <div key={section.key} className="md:col-span-2">
+              <div className="rounded-[22px] border border-[color:var(--line)] bg-[color:var(--surface)]/65 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted)]">
+                  {section.title}
+                </p>
+                <p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">
+                  {section.description}
+                </p>
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  {section.fields.map((field) => (
+                    <Field
+                      key={field.id || field.key}
+                      label={field.label}
+                      className={field.width === "full" ? "md:col-span-2" : ""}
+                    >
+                      <DynamicFieldInput
+                        field={field}
+                        value={dynamicFields[field.key] ?? (field.type === "checkbox" ? false : "")}
+                        onChange={(value) =>
+                          setDynamicFields((current) => ({
+                            ...current,
+                            [field.key]: value,
+                          }))
+                        }
+                      />
+                    </Field>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -266,6 +317,84 @@ export function RequestCreateForm({
         </button>
       </div>
     </form>
+  );
+}
+
+function DynamicFieldInput({
+  field,
+  value,
+  onChange,
+}: {
+  field: FormSection["fields"][number];
+  value: string | boolean;
+  onChange: (value: string | boolean) => void;
+}) {
+  const baseClassName =
+    "w-full rounded-2xl border border-[color:var(--line)] bg-[color:var(--surface)] px-4 py-3 text-sm outline-none placeholder:text-[color:var(--muted)]";
+
+  if (field.type === "textarea") {
+    return (
+      <>
+        <textarea
+          value={typeof value === "string" ? value : ""}
+          onChange={(event) => onChange(event.target.value)}
+          rows={4}
+          placeholder={field.placeholder ?? undefined}
+          className={`${baseClassName} leading-7`}
+        />
+        <p className="mt-2 text-xs leading-5 text-[color:var(--muted)]">{field.helper}</p>
+      </>
+    );
+  }
+
+  if (field.type === "select") {
+    return (
+      <>
+        <select
+          value={typeof value === "string" ? value : ""}
+          onChange={(event) => onChange(event.target.value)}
+          className={baseClassName}
+        >
+          <option value="">Sélectionner</option>
+          {field.options.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+        <p className="mt-2 text-xs leading-5 text-[color:var(--muted)]">{field.helper}</p>
+      </>
+    );
+  }
+
+  if (field.type === "checkbox") {
+    return (
+      <label className="flex items-start gap-3 rounded-2xl border border-[color:var(--line)] bg-white/80 px-4 py-3 text-sm text-[color:var(--foreground)]">
+        <input
+          type="checkbox"
+          checked={Boolean(value)}
+          onChange={(event) => onChange(event.target.checked)}
+          className="mt-1"
+        />
+        <span className="leading-6">
+          {field.helper || field.label}
+        </span>
+      </label>
+    );
+  }
+
+  return (
+    <>
+      <input
+        value={typeof value === "string" ? value : ""}
+        onChange={(event) => onChange(event.target.value)}
+        type={field.type === "date" ? "date" : "text"}
+        inputMode={field.type === "currency" ? "decimal" : undefined}
+        placeholder={field.placeholder ?? undefined}
+        className={baseClassName}
+      />
+      <p className="mt-2 text-xs leading-5 text-[color:var(--muted)]">{field.helper}</p>
+    </>
   );
 }
 

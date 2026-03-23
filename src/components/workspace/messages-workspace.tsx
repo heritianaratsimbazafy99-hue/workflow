@@ -47,17 +47,17 @@ export function MessagesWorkspace({
 }: {
   currentUser: CurrentUser;
   initialConversations: ConversationPreview[];
-  initialActiveConversationId: string;
+  initialActiveConversationId: string | null;
   initialMessages: ConversationMessage[];
 }) {
   const [conversations, setConversations] = useState(initialConversations);
   const [activeConversationId, setActiveConversationId] = useState(
-    initialActiveConversationId,
+    initialActiveConversationId ?? initialConversations[0]?.id ?? null,
   );
   const [messagesByConversation, setMessagesByConversation] = useState<
     Record<string, ConversationMessage[]>
   >({
-    [initialActiveConversationId]: initialMessages,
+    ...(initialActiveConversationId ? { [initialActiveConversationId]: initialMessages } : {}),
   });
   const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>("demo");
   const [runtimeActorId, setRuntimeActorId] = useState(currentUser.id);
@@ -239,6 +239,8 @@ export function MessagesWorkspace({
       }).format(new Date()),
       kind: "text",
       isOwn: true,
+      mentionLabels: [],
+      readCount: 1,
     };
 
     setComposer("");
@@ -307,7 +309,20 @@ export function MessagesWorkspace({
   }
 
   if (!activeConversation) {
-    return null;
+    return (
+      <section className="rounded-[32px] border border-[color:var(--line)] bg-[color:var(--surface)] p-8 text-center shadow-[0_18px_50px_rgba(19,33,31,0.08)]">
+        <p className="text-xs uppercase tracking-[0.22em] text-[color:var(--muted)]">
+          Messagerie
+        </p>
+        <h2 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-[color:var(--foreground)]">
+          Aucun canal actif
+        </h2>
+        <p className="mt-3 text-sm leading-6 text-[color:var(--muted)]">
+          Les conversations apparaîtront ici dès qu’une demande créera son canal
+          dossier ou qu’un échange interne sera ouvert.
+        </p>
+      </section>
+    );
   }
 
   return (
@@ -452,8 +467,13 @@ export function MessagesWorkspace({
                 {activeConversation.context}
               </p>
             </div>
-            <div className="rounded-[24px] border border-[color:var(--line)] bg-white/80 px-4 py-3 text-sm text-[color:var(--muted)]">
-              {activeConversation.participants.join(" · ")}
+            <div
+              title={activeConversation.participants.join(" · ")}
+              className="rounded-[24px] border border-[color:var(--line)] bg-white/80 px-4 py-3 text-sm text-[color:var(--muted)]"
+            >
+              <p className="max-w-full truncate">
+                {activeConversation.participants.join(" · ")}
+              </p>
             </div>
           </div>
 
@@ -512,7 +532,9 @@ export function MessagesWorkspace({
               }`}
             >
               <div className="flex items-center justify-between gap-4">
-                <p className="font-medium">{message.author}</p>
+                <p className="max-w-[65%] truncate font-medium" title={message.author}>
+                  {message.author}
+                </p>
                 <span
                   className={`font-mono text-xs ${
                     message.isOwn && message.kind !== "system"
@@ -532,6 +554,32 @@ export function MessagesWorkspace({
               >
                 {message.body}
               </p>
+              {message.kind !== "system" &&
+              (message.mentionLabels.length > 0 || message.readCount > 0) ? (
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                  {message.mentionLabels.map((label) => (
+                    <span
+                      key={`${message.id}-${label}`}
+                      className={`rounded-full px-2 py-1 ${
+                        message.isOwn
+                          ? "bg-white/10 text-white/72"
+                          : "bg-[color:var(--surface-strong)] text-[color:var(--foreground)]"
+                      }`}
+                    >
+                      @{label}
+                    </span>
+                  ))}
+                  <span
+                    className={`rounded-full px-2 py-1 ${
+                      message.isOwn
+                        ? "bg-white/10 text-white/72"
+                        : "bg-[color:var(--surface-strong)] text-[color:var(--muted)]"
+                    }`}
+                  >
+                    Lu par {message.readCount}
+                  </span>
+                </div>
+              ) : null}
             </article>
           ))}
         </div>
@@ -707,6 +755,13 @@ function mapRealtimeMessage(
     createdAt: formatClockValue(payload.created_at),
     kind: payload.kind === "system" ? "system" : "text",
     isOwn: payload.sender_id === actorId,
+    mentionLabels: Array.isArray(metadata.mentions)
+      ? metadata.mentions.filter((item): item is string => typeof item === "string")
+      : [],
+    readCount:
+      typeof metadata.read_count === "number" && Number.isFinite(metadata.read_count)
+        ? metadata.read_count
+        : 0,
   };
 }
 

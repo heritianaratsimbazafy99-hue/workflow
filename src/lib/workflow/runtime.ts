@@ -14,6 +14,8 @@ type SupabaseProfileRow = {
   id: string;
   email: string | null;
   full_name: string | null;
+  display_name: string | null;
+  username: string | null;
   job_title: string | null;
   role: string | null;
 };
@@ -70,21 +72,27 @@ export async function resolveRuntimeActor(): Promise<RuntimeActor> {
 
     const { data } = await supabase
       .from("profiles")
-      .select("id, email, full_name, job_title, role")
+      .select("id, email, full_name, display_name, username, job_title, role")
       .eq("id", user.id)
       .maybeSingle();
 
     const profile = (data as SupabaseProfileRow | null) ?? null;
+    const fullName = deriveUserLabel(profile, { compact: false });
 
     return {
       id: user.id,
       fullName:
-        profile?.full_name ||
+        fullName ||
         user.user_metadata.full_name ||
         user.email?.split("@")[0] ||
         currentUser.fullName,
       email: profile?.email || user.email || currentUser.email,
       roleLabel: profile?.job_title || humanizeRole(profile?.role) || "Utilisateur interne",
+      username: profile?.username ?? user.email?.split("@")[0] ?? null,
+      appRole:
+        profile?.role === "admin" || profile?.role === "manager" || profile?.role === "employee"
+          ? profile.role
+          : "employee",
       mode: "live",
     };
   } catch {
@@ -116,6 +124,8 @@ export function createDemoMessage(
     createdAt: formatUiTime(new Date().toISOString()),
     kind: "text",
     isOwn: true,
+    mentionLabels: [],
+    readCount: 1,
   };
 }
 
@@ -156,6 +166,8 @@ export function mapMessageRowToView(
     createdAt: formatUiTime(row.created_at),
     kind: row.kind === "system" ? "system" : "text",
     isOwn: row.sender_id === actorId,
+    mentionLabels: readStringArray(metadata.mentions),
+    readCount: readNumber(metadata.read_count) ?? 0,
   };
 }
 
@@ -195,6 +207,76 @@ export function truncateText(value: string, maxLength: number) {
   return `${value.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
 }
 
+export function deriveUserLabel(
+  profile:
+    | {
+        display_name?: string | null;
+        username?: string | null;
+        full_name?: string | null;
+        email?: string | null;
+      }
+    | null
+    | undefined,
+  options?: {
+    compact?: boolean;
+  },
+) {
+  if (!profile) {
+    return "Collaborateur";
+  }
+
+  const compact = options?.compact ?? false;
+  const displayName = readString(profile.display_name);
+  const username = readString(profile.username);
+  const fullName = readString(profile.full_name);
+  const emailHandle = readString(profile.email)?.split("@")[0] ?? null;
+
+  if (!compact) {
+    return displayName || fullName || username || emailHandle || "Collaborateur";
+  }
+
+  if (displayName) {
+    return displayName;
+  }
+
+  if (username && username.length <= 28) {
+    return username;
+  }
+
+  if (fullName) {
+    const words = fullName.split(/\s+/).filter(Boolean);
+
+    if (words.length >= 2) {
+      const compactName = `${words[0]} ${words[1].charAt(0)}.`;
+      return compactName.length <= 26 ? compactName : truncateText(words[0], 24);
+    }
+
+    return truncateText(fullName, 24);
+  }
+
+  if (username) {
+    return truncateText(username, 24);
+  }
+
+  if (emailHandle) {
+    return truncateText(emailHandle, 24);
+  }
+
+  return "Collaborateur";
+}
+
+export function deriveUserHandle(
+  profile:
+    | {
+        username?: string | null;
+        email?: string | null;
+      }
+    | null
+    | undefined,
+) {
+  return readString(profile?.username) || readString(profile?.email)?.split("@")[0] || null;
+}
+
 function humanizeRole(role: string | null | undefined) {
   if (!role) {
     return null;
@@ -212,4 +294,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function readString(value: unknown) {
   return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function readStringArray(value: unknown) {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function readNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }

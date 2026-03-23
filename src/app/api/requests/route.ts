@@ -11,6 +11,7 @@ const createRequestSchema = z.object({
   description: z.string().trim().min(10).max(4000),
   amount: z.number().nonnegative().optional().nullable(),
   priority: z.enum(["low", "normal", "high", "critical"]).default("normal"),
+  dynamicFields: z.record(z.string(), z.union([z.string(), z.boolean()])).optional().nullable(),
 });
 
 export async function POST(request: Request) {

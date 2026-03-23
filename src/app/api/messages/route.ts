@@ -5,6 +5,7 @@ import { dispatchNotifications } from "@/lib/notifications/service";
 import {
   canUseSupabaseLiveMode,
   createDemoMessage,
+  deriveUserLabel,
   getDemoConversationMessages,
   mapMessageRowToView,
   resolveRuntimeActor,
@@ -43,6 +44,8 @@ type ProfileRecipientRow = {
   id: string;
   email: string | null;
   full_name: string | null;
+  display_name: string | null;
+  username: string | null;
 };
 
 export async function GET(request: Request) {
@@ -94,11 +97,58 @@ export async function GET(request: Request) {
     );
   }
 
+  const rows = (data as MessageRow[] | null) ?? [];
+  const messageIds = rows.map((item) => item.id);
+  const { data: memberRows } = await service
+    .from("conversation_members")
+    .select("user_id")
+    .eq("conversation_id", conversationId);
+  const profileIds = uniqueValues(
+    ((memberRows as MemberRow[] | null) ?? []).map((item) => item.user_id),
+  );
+
+  if (messageIds.length > 0) {
+    await service.from("message_reads").upsert(
+      rows
+        .filter((item) => item.sender_id !== actor.id)
+        .map((item) => ({
+          message_id: item.id,
+          user_id: actor.id,
+        })),
+      { onConflict: "message_id,user_id", ignoreDuplicates: true },
+    );
+  }
+
+  const [readsResult, mentionsResult, profilesResult] = await Promise.all([
+    messageIds.length > 0
+      ? service
+          .from("message_reads")
+          .select("message_id, user_id")
+          .in("message_id", messageIds)
+      : Promise.resolve({ data: [] }),
+    messageIds.length > 0
+      ? service
+          .from("message_mentions")
+          .select("message_id, user_id")
+          .in("message_id", messageIds)
+      : Promise.resolve({ data: [] }),
+    profileIds.length > 0
+      ? service
+          .from("profiles")
+          .select("id, email, full_name, display_name, username")
+          .in("id", profileIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+
   return NextResponse.json({
     mode: "live",
     actor,
-    items: ((data as MessageRow[] | null) ?? []).map((item) =>
-      mapMessageRowToView(item, actor.id),
+    items: mapConversationMessages(
+      rows,
+      actor.id,
+      (profilesResult.data as ProfileRecipientRow[] | null) ?? [],
+      ((mentionsResult.data as Array<{ message_id: string; user_id: string }> | null) ?? []),
+      ((readsResult.data as Array<{ message_id: string; user_id: string }> | null) ?? []),
     ),
   });
 }
@@ -150,10 +200,7 @@ export async function POST(request: Request) {
       sender_id: actor.id,
       kind: "text",
       body: payload.body,
-      metadata: {
-        sender_name: actor.fullName,
-        sender_role: actor.roleLabel,
-      },
+      metadata: {},
     })
     .select("id, conversation_id, sender_id, kind, body, metadata, created_at")
     .single();
@@ -181,21 +228,49 @@ export async function POST(request: Request) {
     (item) => item.user_id,
   );
 
+  const { data: allMemberProfilesRows } = await service
+    .from("profiles")
+    .select("id, email, full_name, display_name, username")
+    .in("id", uniqueValues([actor.id, ...memberIds]));
+  const allMemberProfiles =
+    (allMemberProfilesRows as ProfileRecipientRow[] | null) ?? [];
+  const mentionRecipients = resolveMentionRecipients(
+    payload.body,
+    allMemberProfiles.filter((profile) => profile.id !== actor.id),
+  );
+  const mentionLabels = mentionRecipients.map((recipient) =>
+    deriveUserLabel(recipient, { compact: true }),
+  );
+
+  if (mentionRecipients.length > 0) {
+    await service.from("message_mentions").upsert(
+      mentionRecipients.map((recipient) => ({
+        message_id: data.id,
+        user_id: recipient.id,
+      })),
+      { onConflict: "message_id,user_id", ignoreDuplicates: true },
+    );
+  }
+
+  await service.from("message_reads").upsert(
+    {
+      message_id: data.id,
+      user_id: actor.id,
+    },
+    { onConflict: "message_id,user_id", ignoreDuplicates: true },
+  );
+
   let notificationsInserted = 0;
   let emailsSent = 0;
 
   if (memberIds.length > 0) {
-    const { data: profileRows } = await service
-      .from("profiles")
-      .select("id, email, full_name")
-      .in("id", memberIds);
-
-    const recipients =
-      (profileRows as ProfileRecipientRow[] | null)?.map((recipient) => ({
+    const recipients = allMemberProfiles
+      .filter((recipient) => recipient.id !== actor.id)
+      .map((recipient) => ({
         id: recipient.id,
         email: recipient.email,
         fullName: recipient.full_name,
-      })) ?? [];
+      }));
 
     const dispatchResult = await dispatchNotifications({
       recipients,
@@ -214,8 +289,101 @@ export async function POST(request: Request) {
   return NextResponse.json({
     mode: "live",
     actor,
-    item: mapMessageRowToView(data as MessageRow, actor.id),
+    item: mapMessageRowToView(
+      {
+        ...(data as MessageRow),
+        metadata: {
+          ...((data as MessageRow).metadata ?? {}),
+          sender_name: actor.username ?? actor.fullName,
+          sender_role: actor.roleLabel,
+          mentions: mentionLabels,
+          read_count: 1,
+        },
+      },
+      actor.id,
+    ),
     notificationsInserted,
     emailsSent,
   });
+}
+
+function mapConversationMessages(
+  rows: MessageRow[],
+  actorId: string,
+  profiles: ProfileRecipientRow[],
+  mentions: Array<{ message_id: string; user_id: string }>,
+  reads: Array<{ message_id: string; user_id: string }>,
+) {
+  const profileById = profiles.reduce<Record<string, ProfileRecipientRow>>(
+    (accumulator, profile) => {
+      accumulator[profile.id] = profile;
+      return accumulator;
+    },
+    {},
+  );
+  const mentionsByMessage = groupBy(mentions, (item) => item.message_id);
+  const readsByMessage = groupBy(reads, (item) => item.message_id);
+
+  return rows.map((row) =>
+    mapMessageRowToView(
+      {
+        ...row,
+        metadata: {
+          ...(row.metadata ?? {}),
+          sender_name:
+            row.kind === "system"
+              ? "Workflow Engine"
+              : deriveUserLabel(
+                  row.sender_id ? profileById[row.sender_id] : null,
+                  { compact: true },
+                ),
+          mentions: uniqueValues(
+            (mentionsByMessage[row.id] ?? [])
+              .map((mention) =>
+                deriveUserLabel(profileById[mention.user_id], { compact: true }),
+              )
+              .filter(Boolean),
+          ),
+          read_count: (readsByMessage[row.id] ?? []).length,
+        },
+      },
+      actorId,
+    ),
+  );
+}
+
+function resolveMentionRecipients(
+  body: string,
+  recipients: ProfileRecipientRow[],
+) {
+  const handles = uniqueValues(
+    Array.from(body.matchAll(/(^|\s)@([a-z0-9._-]{2,50})/gi)).map((match) =>
+      match[2].toLowerCase(),
+    ),
+  );
+
+  if (handles.length === 0) {
+    return [];
+  }
+
+  return recipients.filter((recipient) => {
+    const handle =
+      recipient.username?.toLowerCase() ??
+      recipient.email?.split("@")[0]?.toLowerCase() ??
+      null;
+
+    return handle ? handles.includes(handle) : false;
+  });
+}
+
+function groupBy<T>(items: T[], getKey: (item: T) => string) {
+  return items.reduce<Record<string, T[]>>((accumulator, item) => {
+    const key = getKey(item);
+    accumulator[key] = [...(accumulator[key] ?? []), item];
+    return accumulator;
+  }, {});
+}
+
+function uniqueValues<T>(items: T[]) {
+  return Array.from(new Set(items));
 }

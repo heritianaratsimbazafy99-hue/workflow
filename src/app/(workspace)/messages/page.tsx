@@ -6,17 +6,13 @@ import {
 } from "lucide-react";
 import { MessagesWorkspace } from "@/components/workspace/messages-workspace";
 import {
-  conversationMessages,
-  conversationPreviews,
-  currentUser,
-} from "@/lib/workflow/mock-data";
-import {
   PageHeader,
   PillLink,
   SectionTitle,
   SummaryStat,
   SurfaceCard,
 } from "@/components/workspace/ui";
+import { getMessagesWorkspaceData } from "@/lib/workflow/messages";
 
 export default async function MessagesPage({
   searchParams,
@@ -24,12 +20,9 @@ export default async function MessagesPage({
   searchParams: Promise<{ conversation?: string }>;
 }) {
   const resolvedSearchParams = await searchParams;
-  const activeConversation =
-    conversationPreviews.find(
-      (conversation) => conversation.id === resolvedSearchParams.conversation,
-    ) ?? conversationPreviews[0];
-  const thread = conversationMessages.filter(
-    (message) => message.conversationId === activeConversation.id,
+  const data = await getMessagesWorkspaceData(resolvedSearchParams.conversation);
+  const uniqueParticipants = new Set(
+    data.conversations.flatMap((conversation) => conversation.participants),
   );
 
   return (
@@ -49,18 +42,19 @@ export default async function MessagesPage({
       <div className="grid gap-4 lg:grid-cols-3">
         <SummaryStat
           label="Conversations actives"
-          value={String(conversationPreviews.length)}
+          value={String(data.conversations.length)}
           icon={MessageSquareMore}
         />
         <SummaryStat
           label="Participants visibles"
-          value={String(
-            new Set(conversationPreviews.flatMap((conversation) => conversation.participants))
-              .size,
-          )}
+          value={String(uniqueParticipants.size)}
           icon={Users}
         />
-        <SummaryStat label="Emails immédiats prêts" value="ON" icon={Mail} />
+        <SummaryStat
+          label="Emails immédiats prêts"
+          value={data.mode === "live" ? "LIVE" : "ON"}
+          icon={Mail}
+        />
       </div>
 
       <SurfaceCard>
@@ -103,10 +97,10 @@ export default async function MessagesPage({
       </SurfaceCard>
 
       <MessagesWorkspace
-        currentUser={currentUser}
-        initialConversations={conversationPreviews}
-        initialActiveConversationId={activeConversation.id}
-        initialMessages={thread}
+        currentUser={data.actor}
+        initialConversations={data.conversations}
+        initialActiveConversationId={data.activeConversationId}
+        initialMessages={data.messages}
       />
     </div>
   );

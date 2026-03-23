@@ -7,6 +7,7 @@ import {
   House,
   MessageSquareMore,
   Plus,
+  Settings2,
   ShieldCheck,
   Waypoints,
 } from "lucide-react";
@@ -31,6 +32,11 @@ const navigation = [
     href: "/messages",
     label: "Messagerie",
     icon: MessageSquareMore,
+  },
+  {
+    href: "/admin",
+    label: "Admin",
+    icon: Settings2,
   },
 ] as const;
 

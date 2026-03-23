@@ -39,6 +39,7 @@ export default async function NewRequestPage() {
             mode={catalog.mode}
             requestTypes={catalog.requestTypes}
             templates={catalog.templates}
+            formSectionsByRequestType={catalog.formSectionsByRequestType}
           />
         </SurfaceCard>
 

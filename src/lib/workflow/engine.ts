@@ -5,6 +5,7 @@ import {
   getConversationMessages,
   getConversationPreview,
   getRequestDetail,
+  requestCreationSections,
   requestTypes as mockRequestTypes,
   workspaceAlerts,
   workflowTemplates as mockWorkflowTemplates,
@@ -13,6 +14,8 @@ import { dispatchNotifications } from "@/lib/notifications/service";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import {
   canUseSupabaseLiveMode,
+  deriveUserHandle,
+  deriveUserLabel,
   formatUiTime,
   mapMessageRowToView,
   resolveRuntimeActor,
@@ -24,6 +27,7 @@ import type {
   ConversationMessage,
   ConversationPreview,
   DashboardMetric,
+  FormSection,
   InboxItem,
   RequestDetail,
   RequestPriority,
@@ -43,6 +47,8 @@ type ProfileRow = {
   id: string;
   email: string | null;
   full_name: string;
+  display_name: string | null;
+  username: string | null;
   role: "admin" | "manager" | "employee";
   department_id: string | null;
   job_title: string | null;
@@ -79,6 +85,23 @@ type WorkflowTemplateStepRow = {
   min_approvals: number;
   sla_hours: number;
   condition_json: Record<string, unknown> | null;
+};
+
+type RequestTypeFieldDefinitionRow = {
+  id: string;
+  request_type_id: string;
+  section_key: string;
+  section_title: string;
+  field_key: string;
+  label: string;
+  field_type: "text" | "textarea" | "select" | "currency" | "date" | "checkbox";
+  helper_text: string;
+  placeholder: string | null;
+  required: boolean;
+  width: "full" | "half";
+  options_json: unknown;
+  sort_order: number;
+  is_active: boolean;
 };
 
 type RequestRow = {
@@ -185,6 +208,7 @@ type CreationCatalog = {
       requestTypeCode: string | null;
     }
   >;
+  formSectionsByRequestType: Record<string, FormSection[]>;
 };
 
 type RequestDetailResult = {
@@ -222,6 +246,7 @@ type CreateWorkflowRequestInput = {
   description: string;
   amount?: number | null;
   priority: RequestPriority;
+  dynamicFields?: Record<string, unknown> | null;
 };
 
 type CreateWorkflowRequestResult =
@@ -287,11 +312,16 @@ export async function getWorkflowCreationCatalog(): Promise<CreationCatalog> {
         requestTypeCode:
           ["budget", "payment", "repair"][index] ?? mockRequestTypes[0].id,
       })),
+      formSectionsByRequestType: {
+        budget: requestCreationSections,
+        payment: requestCreationSections,
+        repair: requestCreationSections,
+      },
     };
   }
 
   const service = createSupabaseServiceRoleClient();
-  const [requestTypesResult, templatesResult, stepsResult, departmentsResult] =
+  const [requestTypesResult, templatesResult, stepsResult, departmentsResult, fieldDefsResult] =
     await Promise.all([
       service
         .from("request_types")
@@ -310,6 +340,13 @@ export async function getWorkflowCreationCatalog(): Promise<CreationCatalog> {
         )
         .order("step_order", { ascending: true }),
       service.from("departments").select("id, code, name"),
+      service
+        .from("request_type_field_definitions")
+        .select(
+          "id, request_type_id, section_key, section_title, field_key, label, field_type, helper_text, placeholder, required, width, options_json, sort_order, is_active",
+        )
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true }),
     ]);
 
   const departments = ((departmentsResult.data as DepartmentRow[] | null) ?? []).reduce<
@@ -367,11 +404,20 @@ export async function getWorkflowCreationCatalog(): Promise<CreationCatalog> {
     }),
   );
 
+  const fieldDefinitions = (fieldDefsResult.data as RequestTypeFieldDefinitionRow[] | null) ?? [];
+  const formSectionsByRequestType = groupBy(fieldDefinitions, (item) => item.request_type_id);
+
   return {
     mode: "live",
     actor,
     requestTypes,
     templates,
+    formSectionsByRequestType: Object.fromEntries(
+      Object.entries(formSectionsByRequestType).map(([requestTypeId, fields]) => [
+        requestTypeId,
+        mapFieldDefinitionsToSections(fields),
+      ]),
+    ),
   };
 }
 
@@ -432,7 +478,7 @@ export async function getApprovalsInboxData(): Promise<ApprovalInboxResult> {
         .in("id", requestTypeIds),
       service
         .from("profiles")
-        .select("id, email, full_name, role, department_id, job_title")
+        .select("id, email, full_name, display_name, username, role, department_id, job_title")
         .in("id", requesterIds),
       service.from("departments").select("id, code, name"),
       service
@@ -480,7 +526,7 @@ export async function getApprovalsInboxData(): Promise<ApprovalInboxResult> {
         id: request.reference,
         title: request.title,
         typeName: requestType?.name ?? "Demande",
-        requester: requester?.full_name ?? "Collaborateur",
+        requester: deriveUserLabel(requester, { compact: true }),
         department: departmentName,
         amount: formatAmount(request.amount, request.currency),
         currentStep: activeStep?.name ?? "En attente",
@@ -581,7 +627,7 @@ export async function getWorkspaceDashboardData(): Promise<WorkspaceDashboardRes
     auditActorIds.length > 0
       ? await service
           .from("profiles")
-          .select("id, email, full_name, role, department_id, job_title")
+          .select("id, email, full_name, display_name, username, role, department_id, job_title")
           .in("id", auditActorIds)
       : { data: [] };
 
@@ -706,6 +752,7 @@ export async function getRequestDetailData(
     stepsResult,
     commentsResult,
     attachmentsResult,
+    fieldDefsResult,
     profilesResult,
     departmentsResult,
     auditResult,
@@ -725,13 +772,13 @@ export async function getRequestDetailData(
       : Promise.resolve({ data: null }),
     service
       .from("profiles")
-      .select("id, email, full_name, role, department_id, job_title")
+      .select("id, email, full_name, display_name, username, role, department_id, job_title")
       .eq("id", requestRow.requester_id)
       .maybeSingle(),
     requestRow.current_assignee_id
       ? service
           .from("profiles")
-          .select("id, email, full_name, role, department_id, job_title")
+          .select("id, email, full_name, display_name, username, role, department_id, job_title")
           .eq("id", requestRow.current_assignee_id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
@@ -753,8 +800,16 @@ export async function getRequestDetailData(
       .eq("request_id", requestRow.id)
       .order("created_at", { ascending: false }),
     service
+      .from("request_type_field_definitions")
+      .select(
+        "id, request_type_id, section_key, section_title, field_key, label, field_type, helper_text, placeholder, required, width, options_json, sort_order, is_active",
+      )
+      .eq("request_type_id", requestRow.request_type_id)
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true }),
+    service
       .from("profiles")
-      .select("id, email, full_name, role, department_id, job_title"),
+      .select("id, email, full_name, display_name, username, role, department_id, job_title"),
     service.from("departments").select("id, code, name"),
     service
       .from("audit_logs")
@@ -786,6 +841,8 @@ export async function getRequestDetailData(
   const steps = (stepsResult.data as RequestStepInstanceRow[] | null) ?? [];
   const comments = (commentsResult.data as RequestCommentRow[] | null) ?? [];
   const attachments = (attachmentsResult.data as RequestAttachmentRow[] | null) ?? [];
+  const fieldDefinitions =
+    (fieldDefsResult.data as RequestTypeFieldDefinitionRow[] | null) ?? [];
   const conversation = (conversationResult.data as ConversationRow | null) ?? null;
 
   const conversationMessages = conversation
@@ -801,7 +858,11 @@ export async function getRequestDetailData(
     (step) => step.step_order === requestRow.current_step_order && step.status === "pending",
   );
   const currentApproverLabel = currentSteps
-    .map((step) => (step.approver_id ? allProfiles[step.approver_id]?.full_name : null))
+    .map((step) =>
+      step.approver_id
+        ? deriveUserLabel(allProfiles[step.approver_id], { compact: true })
+        : null,
+    )
     .filter(Boolean)
     .join(" · ");
   const currentStepLabel =
@@ -817,20 +878,42 @@ export async function getRequestDetailData(
 
   const participants = uniqueValues(
     [
-      requester?.full_name ?? null,
-      assignee?.full_name ?? null,
+      deriveUserLabel(requester, { compact: true }),
+      assignee ? deriveUserLabel(assignee, { compact: true }) : null,
       ...steps.map((step) =>
-        step.approver_id ? allProfiles[step.approver_id]?.full_name ?? null : null,
+        step.approver_id
+          ? deriveUserLabel(allProfiles[step.approver_id], { compact: true })
+          : null,
       ),
     ].filter((value): value is string => Boolean(value)),
   );
+  const metadata = isRecord(requestRow.metadata) ? requestRow.metadata : {};
+  const customFields = fieldDefinitions
+    .map((definition) => {
+      const rawValue = metadata[definition.field_key];
+      const formattedValue = formatCustomFieldValue(rawValue, definition.field_type);
+
+      if (!formattedValue) {
+        return null;
+      }
+
+      return {
+        key: definition.field_key,
+        label: definition.label,
+        value: formattedValue,
+        section: definition.section_title,
+      };
+    })
+    .filter((value): value is NonNullable<typeof value> => Boolean(value));
 
   const viewRequest: RequestDetail = {
     id: requestRow.id,
     reference: requestRow.reference,
     title: requestRow.title,
     typeName: requestType?.name ?? "Demande",
-    requester: requester?.full_name ?? "Collaborateur",
+    requester: deriveUserLabel(requester, { compact: true }),
+    requesterFullName: deriveUserLabel(requester, { compact: false }),
+    requesterHandle: deriveUserHandle(requester),
     requesterRole: requester?.job_title ?? humanizeRole(requester?.role) ?? "Utilisateur interne",
     department: requestDepartmentName,
     amount: formatAmount(requestRow.amount, requestRow.currency),
@@ -849,7 +932,9 @@ export async function getRequestDetailData(
     steps: steps.map((step) => ({
       id: step.id,
       name: step.name,
-      owner: step.approver_id ? allProfiles[step.approver_id]?.full_name ?? "À affecter" : "À affecter",
+      owner: step.approver_id
+        ? deriveUserLabel(allProfiles[step.approver_id], { compact: true })
+        : "À affecter",
       status: mapStepStatusForView(step, requestRow.current_step_order),
       deadline: step.due_at ? formatClockOrDate(step.due_at) : "Sans SLA",
       note:
@@ -864,7 +949,9 @@ export async function getRequestDetailData(
     })),
     comments: comments.map((comment) => ({
       id: comment.id,
-      author: comment.author_id ? allProfiles[comment.author_id]?.full_name ?? "Workflow Engine" : "Workflow Engine",
+      author: comment.author_id
+        ? deriveUserLabel(allProfiles[comment.author_id], { compact: true })
+        : "Workflow Engine",
       role: comment.author_id
         ? allProfiles[comment.author_id]?.job_title ||
           humanizeRole(allProfiles[comment.author_id]?.role) ||
@@ -879,10 +966,11 @@ export async function getRequestDetailData(
       name: attachment.file_name,
       size: formatBytes(attachment.size_bytes),
       uploadedBy: attachment.uploader_id
-        ? allProfiles[attachment.uploader_id]?.full_name ?? "Collaborateur"
+        ? deriveUserLabel(allProfiles[attachment.uploader_id], { compact: true })
         : "Collaborateur",
       uploadedAt: formatClockOrDate(attachment.created_at),
     })),
+    customFields,
     conversationId: conversation?.id ?? "",
   };
 
@@ -940,12 +1028,12 @@ export async function createWorkflowRequest(
         .maybeSingle(),
       service
         .from("profiles")
-        .select("id, email, full_name, role, department_id, job_title")
+        .select("id, email, full_name, display_name, username, role, department_id, job_title")
         .eq("id", actor.id)
         .maybeSingle(),
       service
         .from("profiles")
-        .select("id, email, full_name, role, department_id, job_title"),
+        .select("id, email, full_name, display_name, username, role, department_id, job_title"),
     ]);
 
   const requestType = (requestTypeResult.data as RequestTypeRow | null) ?? null;
@@ -980,6 +1068,15 @@ export async function createWorkflowRequest(
     .eq("template_id", selectedTemplate.id)
     .order("step_order", { ascending: true });
 
+  const { data: fieldDefinitionsData } = await service
+    .from("request_type_field_definitions")
+    .select(
+      "id, request_type_id, section_key, section_title, field_key, label, field_type, helper_text, placeholder, required, width, options_json, sort_order, is_active",
+    )
+    .eq("request_type_id", requestType.id)
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true });
+
   const templateSteps = ((templateStepsData as WorkflowTemplateStepRow[] | null) ?? []).filter(
     (step) =>
       stepMatchesRequest(step.condition_json, {
@@ -988,6 +1085,12 @@ export async function createWorkflowRequest(
         requestTypeCode: requestType.code,
         requesterDepartmentId: requester.department_id,
       }),
+  );
+  const fieldDefinitions =
+    (fieldDefinitionsData as RequestTypeFieldDefinitionRow[] | null) ?? [];
+  const normalizedDynamicFields = normalizeDynamicFields(
+    input.dynamicFields,
+    fieldDefinitions,
   );
 
   const allProfiles = (profilesResult.data as ProfileRow[] | null) ?? [];
@@ -1007,6 +1110,7 @@ export async function createWorkflowRequest(
       submitted_at: new Date().toISOString(),
       metadata: {
         request_type_code: requestType.code,
+        ...normalizedDynamicFields,
       },
     })
     .select("*")
@@ -1216,7 +1320,9 @@ export async function applyWorkflowDecision(
   }
 
   const [profilesResult, conversationResult] = await Promise.all([
-    service.from("profiles").select("id, email, full_name, role, department_id, job_title"),
+    service
+      .from("profiles")
+      .select("id, email, full_name, display_name, username, role, department_id, job_title"),
     service
       .from("conversations")
       .select("id, request_id, title")
@@ -1464,7 +1570,9 @@ function mapAuditRowsToView(
 ): AuditEvent[] {
   return rows.map((row) => ({
     id: String(row.id),
-    actor: row.actor_id ? profiles[row.actor_id]?.full_name ?? "Workflow Engine" : "Workflow Engine",
+    actor: row.actor_id
+      ? deriveUserLabel(profiles[row.actor_id], { compact: true })
+      : "Workflow Engine",
     action: humanizeAuditAction(row.action),
     at: formatUiTime(row.created_at),
     detail: buildAuditDetail(row),
@@ -1867,6 +1975,106 @@ function formatBytes(size: number | null) {
   }
 
   return `${(size / (1024 * 1024)).toFixed(1).replace(".", ",")} Mo`;
+}
+
+function mapFieldDefinitionsToSections(
+  fieldDefinitions: RequestTypeFieldDefinitionRow[],
+): FormSection[] {
+  const grouped = groupBy(fieldDefinitions, (item) => item.section_key);
+
+  return Object.values(grouped).map((fields) => {
+    const [firstField] = fields;
+
+    return {
+      key: firstField.section_key,
+      title: firstField.section_title,
+      description:
+        firstField.section_title === "Informations complémentaires"
+          ? "Champs métier affichés selon le type de demande."
+          : `Bloc ${firstField.section_title.toLowerCase()} du formulaire.`,
+      fields: fields
+        .sort((left, right) => left.sort_order - right.sort_order)
+        .map((field) => ({
+          id: field.id,
+          key: field.field_key,
+          label: field.label,
+          type: field.field_type,
+          helper: field.helper_text,
+          required: field.required,
+          placeholder: field.placeholder,
+          options: Array.isArray(field.options_json)
+            ? field.options_json.filter((item): item is string => typeof item === "string")
+            : [],
+          width: field.width,
+        })),
+    };
+  });
+}
+
+function normalizeDynamicFields(
+  rawValues: Record<string, unknown> | null | undefined,
+  definitions: RequestTypeFieldDefinitionRow[],
+) {
+  const source = isRecord(rawValues) ? rawValues : {};
+  const normalizedEntries = definitions.map((definition) => {
+    const rawValue = source[definition.field_key];
+    const normalizedValue =
+      definition.field_type === "checkbox" ? Boolean(rawValue) : sanitizeDynamicValue(rawValue);
+
+    if (
+      definition.required &&
+      ((definition.field_type === "checkbox" && !normalizedValue) ||
+        (definition.field_type !== "checkbox" && !normalizedValue))
+    ) {
+      throw new Error(`Le champ ${definition.label} est obligatoire.`);
+    }
+
+    if (
+      definition.field_type === "select" &&
+      typeof normalizedValue === "string" &&
+      Array.isArray(definition.options_json) &&
+      definition.options_json.length > 0 &&
+      !definition.options_json.includes(normalizedValue)
+    ) {
+      throw new Error(`La valeur du champ ${definition.label} est invalide.`);
+    }
+
+    return [definition.field_key, normalizedValue] as const;
+  });
+
+  return Object.fromEntries(
+    normalizedEntries.filter(([, value]) =>
+      typeof value === "boolean" ? value : Boolean(value),
+    ),
+  );
+}
+
+function sanitizeDynamicValue(value: unknown) {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value.trim();
+}
+
+function formatCustomFieldValue(
+  value: unknown,
+  fieldType: RequestTypeFieldDefinitionRow["field_type"],
+) {
+  if (fieldType === "checkbox") {
+    return value === true ? "Oui" : value === false ? "Non" : "";
+  }
+
+  if (fieldType === "currency") {
+    const parsed = typeof value === "string" ? Number(value) : value;
+    return typeof parsed === "number" && Number.isFinite(parsed)
+      ? formatAmount(parsed, "EUR") ?? ""
+      : typeof value === "string"
+        ? value
+        : "";
+  }
+
+  return typeof value === "string" ? value : "";
 }
 
 function groupBy<T>(
