@@ -15,6 +15,7 @@ import { mapNotificationRowsToItems, type NotificationViewRow } from "@/lib/noti
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { RealtimeNotifications } from "@/components/workspace/realtime-notifications";
 import { WorkspaceSidebar } from "@/components/workspace/sidebar";
+import { WorkspaceLiveRefresh } from "@/components/workspace/workspace-live-refresh";
 import { getLiveModeIssue, resolveRuntimeActor } from "@/lib/workflow/runtime";
 
 export async function WorkspaceFrame({ children }: { children: ReactNode }) {
@@ -112,6 +113,7 @@ export async function WorkspaceFrame({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-transparent">
+      <WorkspaceLiveRefresh actorId={actor.id} />
       <div className="mx-auto flex min-h-screen max-w-[1600px] rounded-none lg:p-4">
         <div className="flex min-h-screen w-full overflow-hidden border border-[color:var(--line)] bg-white/65 shadow-[var(--shadow)] backdrop-blur lg:min-h-[calc(100vh-2rem)] lg:rounded-[34px]">
           <WorkspaceSidebar

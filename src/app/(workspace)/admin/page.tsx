@@ -17,10 +17,23 @@ export default async function AdminPage() {
         actions={
           <>
             <PillLink href="/workspace" label="Retour pilotage" />
+            <PillLink href="/admin/workflows" label="Studio workflow" />
             <PillLink href="/requests/new" label="Nouvelle demande" tone="primary" />
           </>
         }
       />
+
+      <div className="rounded-[26px] border border-[color:var(--line)] bg-white/80 px-5 py-4 text-sm text-[color:var(--foreground)]">
+        <p className="font-medium">Nouveau studio workflow</p>
+        <p className="mt-2 leading-6 text-[color:var(--muted)]">
+          La création et l’édition des flux d’approbation passent désormais par une page dédiée :
+          choix du type, composition des étapes, sélection simplifiée des approbateurs et réglage
+          des SLA.
+        </p>
+        <div className="mt-4">
+          <PillLink href="/admin/workflows" label="Ouvrir le studio dédié" tone="primary" />
+        </div>
+      </div>
 
       <div className="rounded-[26px] border border-[color:var(--line)] bg-[color:var(--surface-strong)] px-5 py-4 text-sm text-[color:var(--foreground)]">
         <div className="flex items-center gap-2 font-medium">

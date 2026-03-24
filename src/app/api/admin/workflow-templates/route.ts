@@ -31,19 +31,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid template payload." }, { status: 400 });
   }
 
-  const { error } = await service.from("workflow_templates").insert({
-    code: payload.code,
-    name: payload.name,
-    description: payload.description,
-    request_type_id: payload.requestTypeId ?? null,
-    version: payload.version,
-    is_active: payload.isActive,
-    created_by: actor.id,
-  });
+  const { data, error } = await service
+    .from("workflow_templates")
+    .insert({
+      code: payload.code,
+      name: payload.name,
+      description: payload.description,
+      request_type_id: payload.requestTypeId ?? null,
+      version: payload.version,
+      is_active: payload.isActive,
+      created_by: actor.id,
+    })
+    .select("id")
+    .single();
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, templateId: data.id });
 }

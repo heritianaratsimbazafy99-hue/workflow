@@ -73,6 +73,9 @@ export type MessagesWorkspaceData = {
 
 export async function getMessagesWorkspaceData(
   selectedConversationId?: string,
+  options?: {
+    markActiveConversationAsRead?: boolean;
+  },
 ): Promise<MessagesWorkspaceData> {
   const actor = await resolveRuntimeActor();
 
@@ -152,9 +155,28 @@ export async function getMessagesWorkspaceData(
     (item) => item.id,
   );
   const messageIds = messageRows.map((item) => item.id);
+  const activeConversationMessageIds =
+    options?.markActiveConversationAsRead && selectedConversationId
+      ? messageRows
+          .filter(
+            (item) =>
+              item.conversation_id === selectedConversationId && item.sender_id !== actor.id,
+          )
+          .map((item) => item.id)
+      : [];
   const requestIds = conversationRows
     .map((item) => item.request_id)
     .filter((item): item is string => Boolean(item));
+
+  if (activeConversationMessageIds.length > 0) {
+    await service.from("message_reads").upsert(
+      activeConversationMessageIds.map((messageId) => ({
+        message_id: messageId,
+        user_id: actor.id,
+      })),
+      { onConflict: "message_id,user_id", ignoreDuplicates: true },
+    );
+  }
 
   const [readsResult, mentionsResult, requestsResult] = await Promise.all([
     messageIds.length > 0

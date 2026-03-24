@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Blocks,
   Mail,
   FileCog,
   Radar,
@@ -15,9 +14,7 @@ import {
 import type {
   AdminControlTowerData,
   AdminDepartment,
-  AdminProfile,
   AdminRequestType,
-  AdminWorkflowTemplate,
 } from "@/lib/admin/service";
 import { SurfaceCard } from "@/components/workspace/ui";
 
@@ -79,6 +76,12 @@ export function AdminControlTower({ data }: { data: AdminControlTowerData }) {
       </SurfaceCard>
     );
   }
+
+  const activeWorkflowTemplates = data.templates.filter((template) => template.isActive).length;
+  const totalWorkflowSteps = data.templates.reduce(
+    (total, template) => total + template.steps.length,
+    0,
+  );
 
   return (
     <div className="space-y-6">
@@ -344,61 +347,51 @@ export function AdminControlTower({ data }: { data: AdminControlTowerData }) {
       <SurfaceCard>
         <SectionHeader
           icon={Waypoints}
-          title="Templates et étapes workflow"
-          detail="Versionne tes flux, choisis les modes d’approbation et règle les SLA étape par étape."
+          title="Studio workflow dédié"
+          detail="La création des flux d’approbation passe désormais par un écran guidé séparé, pensé pour aller plus vite et choisir les approbateurs sans jargon technique."
         />
-
-        <CreateTemplateForm
-          requestTypes={data.requestTypes}
-          isPending={isPending}
-          onSubmit={(body) =>
-            handleAsync(async () =>
-              submitJson("/api/admin/workflow-templates", "POST", body, "Template créé."),
-            )
-          }
-        />
-
-        <div className="mt-5 space-y-5">
-          {data.templates.map((template) => (
-            <TemplateCard
-              key={template.id}
-              template={template}
-              requestTypes={data.requestTypes}
-              profiles={data.profiles}
-              departments={data.departments}
-              isPending={isPending}
-              onSave={(body) =>
-                handleAsync(async () =>
-                  submitJson(
-                    `/api/admin/workflow-templates/${template.id}`,
-                    "PATCH",
-                    body,
-                    "Template mis à jour.",
-                  ),
-                )
-              }
-              onAddStep={(body) =>
-                handleAsync(async () =>
-                  submitJson(
-                    `/api/admin/workflow-templates/${template.id}/steps`,
-                    "POST",
-                    body,
-                    "Étape ajoutée.",
-                  ),
-                )
-              }
-              onUpdateStep={(stepId, body) =>
-                handleAsync(async () =>
-                  submitJson(
-                    `/api/admin/workflow-template-steps/${stepId}`,
-                    "PATCH",
-                    body,
-                    "Étape mise à jour.",
-                  ),
-                )
-              }
-            />
-          ))}
+        <div className="grid gap-4 lg:grid-cols-3">
+          <OpsTile
+            label="Types branchés"
+            value={String(data.requestTypes.length)}
+            detail="catalogue métier disponible"
+          />
+          <OpsTile
+            label="Flux actifs"
+            value={String(activeWorkflowTemplates)}
+            detail="templates publiés"
+          />
+          <OpsTile
+            label="Étapes configurées"
+            value={String(totalWorkflowSteps)}
+            detail="parcours actuellement en place"
+          />
+        </div>
+        <div className="mt-5 rounded-[24px] border border-[color:var(--line)] bg-[color:var(--surface-strong)] p-5">
+          <p className="text-sm font-medium text-[color:var(--foreground)]">
+            Nouveau parcours de configuration
+          </p>
+          <p className="mt-2 max-w-4xl text-sm leading-6 text-[color:var(--muted)]">
+            Le studio dédié concentre la création des flux, le choix du type de demande,
+            l’ajout d’étapes, le choix des approbateurs par rôle, département ou personne
+            nommée, et le réglage des SLA avec des presets métier simples.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => router.push("/admin/workflows")}
+              className="rounded-full bg-[color:var(--foreground)] px-4 py-2 text-sm font-medium text-[color:var(--surface-strong)]"
+            >
+              Ouvrir le studio workflow
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push("/requests/new")}
+              className="rounded-full border border-[color:var(--line)] bg-white/86 px-4 py-2 text-sm font-medium text-[color:var(--foreground)]"
+            >
+              Tester un type en création
+            </button>
+          </div>
         </div>
       </SurfaceCard>
     </div>
@@ -754,291 +747,6 @@ function CreateFieldForm({
   );
 }
 
-function CreateTemplateForm({
-  requestTypes,
-  isPending,
-  onSubmit,
-}: {
-  requestTypes: AdminRequestType[];
-  isPending: boolean;
-  onSubmit: (body: {
-    code: string;
-    name: string;
-    description: string;
-    requestTypeId: string | null;
-    version: number;
-    isActive: boolean;
-  }) => void;
-}) {
-  return (
-    <form
-      className="rounded-[24px] border border-dashed border-[color:var(--line)] bg-[color:var(--surface-strong)] p-4"
-      onSubmit={(event) => {
-        event.preventDefault();
-        const formData = new FormData(event.currentTarget);
-        onSubmit({
-          code: String(formData.get("code") ?? ""),
-          name: String(formData.get("name") ?? ""),
-          description: String(formData.get("description") ?? ""),
-          requestTypeId: stringOrNull(formData.get("requestTypeId")),
-          version: Number(formData.get("version") ?? 1),
-          isActive: true,
-        });
-        event.currentTarget.reset();
-      }}
-    >
-      <div className="flex items-center gap-2 text-sm font-medium text-[color:var(--foreground)]">
-        <Blocks className="h-4 w-4" />
-        Ajouter un template workflow
-      </div>
-      <div className="mt-3 grid gap-3 md:grid-cols-4">
-        <LabeledInput label="Code" name="code" placeholder="purchase_fast_track" />
-        <LabeledInput label="Nom" name="name" placeholder="Achat rapide" />
-        <LabeledInput label="Version" name="version" type="number" defaultValue="1" />
-        <LabeledSelect label="Type de demande" name="requestTypeId">
-          <option value="">Aucun</option>
-          {requestTypes.map((requestType) => (
-            <option key={requestType.id} value={requestType.id}>
-              {requestType.name}
-            </option>
-          ))}
-        </LabeledSelect>
-        <LabeledInput
-          className="md:col-span-4"
-          label="Description"
-          name="description"
-          placeholder="Manager puis Procurement puis Finance."
-        />
-      </div>
-      <button
-        type="submit"
-        disabled={isPending}
-        className="mt-4 rounded-full bg-[color:var(--foreground)] px-4 py-2 text-sm font-medium text-[color:var(--surface-strong)] disabled:opacity-60"
-      >
-        Ajouter
-      </button>
-    </form>
-  );
-}
-
-function TemplateCard({
-  template,
-  requestTypes,
-  profiles,
-  departments,
-  isPending,
-  onSave,
-  onAddStep,
-  onUpdateStep,
-}: {
-  template: AdminWorkflowTemplate;
-  requestTypes: AdminRequestType[];
-  profiles: AdminProfile[];
-  departments: AdminDepartment[];
-  isPending: boolean;
-  onSave: (body: {
-    code: string;
-    name: string;
-    description: string;
-    requestTypeId: string | null;
-    version: number;
-    isActive: boolean;
-  }) => void;
-  onAddStep: (body: Record<string, unknown>) => void;
-  onUpdateStep: (stepId: string, body: Record<string, unknown>) => void;
-}) {
-  return (
-    <div className="rounded-[26px] border border-[color:var(--line)] bg-white/80 p-4">
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          const formData = new FormData(event.currentTarget);
-          onSave({
-            code: String(formData.get("code") ?? ""),
-            name: String(formData.get("name") ?? ""),
-            description: String(formData.get("description") ?? ""),
-            requestTypeId: stringOrNull(formData.get("requestTypeId")),
-            version: Number(formData.get("version") ?? 1),
-            isActive: formData.get("isActive") === "on",
-          });
-        }}
-      >
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="font-medium text-[color:var(--foreground)]">{template.name}</p>
-            <p className="text-sm text-[color:var(--muted)]">
-              {template.code} · {template.requestTypeName} · {template.steps.length} étape(s)
-            </p>
-          </div>
-          <button
-            type="submit"
-            disabled={isPending}
-            className="rounded-full border border-[color:var(--line)] bg-[color:var(--surface)] px-4 py-2 text-sm font-medium text-[color:var(--foreground)] disabled:opacity-60"
-          >
-            Sauver
-          </button>
-        </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-4">
-          <LabeledInput label="Code" name="code" defaultValue={template.code} />
-          <LabeledInput label="Nom" name="name" defaultValue={template.name} />
-          <LabeledInput label="Version" name="version" type="number" defaultValue={String(template.version)} />
-          <LabeledSelect label="Type de demande" name="requestTypeId" defaultValue={template.requestTypeId ?? ""}>
-            <option value="">Aucun</option>
-            {requestTypes.map((requestType) => (
-              <option key={requestType.id} value={requestType.id}>
-                {requestType.name}
-              </option>
-            ))}
-          </LabeledSelect>
-          <LabeledInput className="md:col-span-3" label="Description" name="description" defaultValue={template.description} />
-          <LabeledCheckbox label="Actif" name="isActive" defaultChecked={template.isActive} />
-        </div>
-      </form>
-
-      <div className="mt-5 space-y-3">
-        {template.steps.map((step) => (
-          <form
-            key={step.id}
-            className="grid gap-3 rounded-[20px] border border-[color:var(--line)] bg-[color:var(--surface)]/75 p-4 md:grid-cols-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              const formData = new FormData(event.currentTarget);
-              onUpdateStep(step.id, {
-                stepOrder: Number(formData.get("stepOrder") ?? step.stepOrder),
-                name: String(formData.get("name") ?? ""),
-                kind: formData.get("kind"),
-                approverMode: formData.get("approverMode"),
-                approverUserId: stringOrNull(formData.get("approverUserId")),
-                approverDepartmentId: stringOrNull(formData.get("approverDepartmentId")),
-                minApprovals: Number(formData.get("minApprovals") ?? 1),
-                slaHours: Number(formData.get("slaHours") ?? 24),
-                conditionJson: parseJson(String(formData.get("conditionJson") ?? "{}")),
-              });
-            }}
-          >
-            <LabeledInput label="Ordre" name="stepOrder" type="number" defaultValue={String(step.stepOrder)} />
-            <LabeledInput label="Nom" name="name" defaultValue={step.name} />
-            <LabeledSelect label="Type" name="kind" defaultValue={step.kind}>
-              <option value="approval">Approval</option>
-              <option value="review">Review</option>
-              <option value="task">Task</option>
-              <option value="payment">Payment</option>
-              <option value="notification">Notification</option>
-            </LabeledSelect>
-            <LabeledSelect label="Approver mode" name="approverMode" defaultValue={step.approverMode}>
-              <option value="manager">Manager</option>
-              <option value="department_role">Department role</option>
-              <option value="dynamic">Dynamic</option>
-              <option value="user">User</option>
-            </LabeledSelect>
-            <LabeledSelect label="Utilisateur ciblé" name="approverUserId" defaultValue={step.approverUserId ?? ""}>
-              <option value="">Aucun</option>
-              {profiles.map((profile) => (
-                <option key={profile.id} value={profile.id}>
-                  {profile.fullName}
-                </option>
-              ))}
-            </LabeledSelect>
-            <LabeledSelect label="Département ciblé" name="approverDepartmentId" defaultValue={step.approverDepartmentId ?? ""}>
-              <option value="">Aucun</option>
-              {departments.map((department) => (
-                <option key={department.id} value={department.id}>
-                  {department.name}
-                </option>
-              ))}
-            </LabeledSelect>
-            <LabeledInput label="Min approvals" name="minApprovals" type="number" defaultValue={String(step.minApprovals)} />
-            <LabeledInput label="SLA (h)" name="slaHours" type="number" defaultValue={String(step.slaHours)} />
-            <LabeledInput
-              className="md:col-span-4"
-              label="Conditions JSON"
-              name="conditionJson"
-              defaultValue={JSON.stringify(step.conditionJson ?? {})}
-            />
-            <div className="md:col-span-4">
-              <button
-                type="submit"
-                disabled={isPending}
-                className="rounded-full bg-[color:var(--foreground)] px-4 py-2 text-sm font-medium text-[color:var(--surface-strong)] disabled:opacity-60"
-              >
-                Sauver l’étape
-              </button>
-            </div>
-          </form>
-        ))}
-      </div>
-
-      <form
-        className="mt-4 rounded-[22px] border border-dashed border-[color:var(--line)] bg-[color:var(--surface-strong)] p-4"
-        onSubmit={(event) => {
-          event.preventDefault();
-          const formData = new FormData(event.currentTarget);
-          onAddStep({
-            stepOrder: Number(formData.get("stepOrder") ?? 1),
-            name: String(formData.get("name") ?? ""),
-            kind: formData.get("kind"),
-            approverMode: formData.get("approverMode"),
-            approverUserId: stringOrNull(formData.get("approverUserId")),
-            approverDepartmentId: stringOrNull(formData.get("approverDepartmentId")),
-            minApprovals: Number(formData.get("minApprovals") ?? 1),
-            slaHours: Number(formData.get("slaHours") ?? 24),
-            conditionJson: parseJson(String(formData.get("conditionJson") ?? "{}")),
-          });
-          event.currentTarget.reset();
-        }}
-      >
-        <div className="flex items-center gap-2 text-sm font-medium text-[color:var(--foreground)]">
-          <Sparkles className="h-4 w-4" />
-          Ajouter une étape
-        </div>
-        <div className="mt-3 grid gap-3 md:grid-cols-4">
-          <LabeledInput label="Ordre" name="stepOrder" type="number" defaultValue="1" />
-          <LabeledInput label="Nom" name="name" placeholder="Validation finance" />
-          <LabeledSelect label="Type" name="kind">
-            <option value="approval">Approval</option>
-            <option value="review">Review</option>
-            <option value="task">Task</option>
-            <option value="payment">Payment</option>
-            <option value="notification">Notification</option>
-          </LabeledSelect>
-          <LabeledSelect label="Approver mode" name="approverMode">
-            <option value="manager">Manager</option>
-            <option value="department_role">Department role</option>
-            <option value="dynamic">Dynamic</option>
-            <option value="user">User</option>
-          </LabeledSelect>
-          <LabeledSelect label="Utilisateur ciblé" name="approverUserId">
-            <option value="">Aucun</option>
-            {profiles.map((profile) => (
-              <option key={profile.id} value={profile.id}>
-                {profile.fullName}
-              </option>
-            ))}
-          </LabeledSelect>
-          <LabeledSelect label="Département ciblé" name="approverDepartmentId">
-            <option value="">Aucun</option>
-            {departments.map((department) => (
-              <option key={department.id} value={department.id}>
-                {department.name}
-              </option>
-            ))}
-          </LabeledSelect>
-          <LabeledInput label="Min approvals" name="minApprovals" type="number" defaultValue="1" />
-          <LabeledInput label="SLA (h)" name="slaHours" type="number" defaultValue="24" />
-          <LabeledInput className="md:col-span-4" label="Conditions JSON" name="conditionJson" defaultValue="{}" />
-        </div>
-        <button
-          type="submit"
-          disabled={isPending}
-          className="mt-4 rounded-full bg-[color:var(--foreground)] px-4 py-2 text-sm font-medium text-[color:var(--surface-strong)] disabled:opacity-60"
-        >
-          Ajouter l’étape
-        </button>
-      </form>
-    </div>
-  );
-}
-
 function LabeledInput({
   label,
   name,
@@ -1125,13 +833,4 @@ function splitOptions(value: string) {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
-}
-
-function parseJson(value: string) {
-  try {
-    const parsed = JSON.parse(value);
-    return typeof parsed === "object" && parsed !== null ? parsed : {};
-  } catch {
-    return {};
-  }
 }

@@ -75,7 +75,10 @@ export function MessagesWorkspace({
     conversations.find((conversation) => conversation.id === activeConversationId) ??
     conversations[0];
   const activeConversationKey = activeConversation?.id ?? null;
-  const messages = messagesByConversation[activeConversation?.id ?? ""] ?? [];
+  const messages = useMemo(
+    () => messagesByConversation[activeConversation?.id ?? ""] ?? [],
+    [activeConversation?.id, messagesByConversation],
+  );
   const totalUnreadCount = conversations.reduce(
     (total, conversation) => total + conversation.unreadCount,
     0,
@@ -103,6 +106,10 @@ export function MessagesWorkspace({
         .includes(needle),
     );
   }, [conversations, deferredSearch]);
+  const activeMessageIds = useMemo(
+    () => messages.map((message) => message.id),
+    [messages],
+  );
 
   const refreshWorkspace = useEffectEvent(async (conversationId: string | null) => {
     const query = conversationId
@@ -268,6 +275,68 @@ export function MessagesWorkspace({
       });
     };
   }, [activeConversationId, activeConversationKey, currentUser.id]);
+
+  useEffect(() => {
+    if (!hasPublicSupabaseEnv() || !activeConversationKey || activeMessageIds.length === 0) {
+      return;
+    }
+
+    const activeMessageIdSet = new Set(activeMessageIds);
+    const supabase = createSupabaseBrowserClient();
+    let isDisposed = false;
+
+    async function connectReadReceipts() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user || isDisposed) {
+        return;
+      }
+
+      const channel = supabase
+        .channel(`message-reads:${activeConversationKey}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "message_reads",
+          },
+          (payload) => {
+            const messageId =
+              typeof payload.new.message_id === "string" ? payload.new.message_id : "";
+            const readerId =
+              typeof payload.new.user_id === "string" ? payload.new.user_id : "";
+
+            if (!messageId || !activeMessageIdSet.has(messageId) || readerId === runtimeActorId) {
+              return;
+            }
+
+            incrementMessageReadCount(
+              activeConversationKey,
+              messageId,
+              setMessagesByConversation,
+            );
+            setRuntimeMode("live");
+          },
+        )
+        .subscribe();
+
+      return channel;
+    }
+
+    const channelPromise = connectReadReceipts();
+
+    return () => {
+      isDisposed = true;
+      void channelPromise.then((channel) => {
+        if (channel) {
+          void supabase.removeChannel(channel);
+        }
+      });
+    };
+  }, [activeConversationKey, activeMessageIds, runtimeActorId]);
 
   function switchConversation(nextConversationId: string) {
     startTransition(() => {
@@ -808,6 +877,26 @@ function removeMessage(
     ...current,
     [conversationId]: (current[conversationId] ?? []).filter(
       (message) => message.id !== optimisticId,
+    ),
+  }));
+}
+
+function incrementMessageReadCount(
+  conversationId: string,
+  messageId: string,
+  setMessagesByConversation: Dispatch<
+    SetStateAction<Record<string, ConversationMessage[]>>
+  >,
+) {
+  setMessagesByConversation((current) => ({
+    ...current,
+    [conversationId]: (current[conversationId] ?? []).map((message) =>
+      message.id === messageId
+        ? {
+            ...message,
+            readCount: message.readCount + 1,
+          }
+        : message,
     ),
   }));
 }

@@ -38,22 +38,26 @@ export async function POST(
   }
 
   const { id } = await params;
-  const { error } = await service.from("workflow_template_steps").insert({
-    template_id: id,
-    step_order: payload.stepOrder,
-    name: payload.name,
-    kind: payload.kind,
-    approver_mode: payload.approverMode,
-    approver_user_id: payload.approverUserId ?? null,
-    approver_department_id: payload.approverDepartmentId ?? null,
-    min_approvals: payload.minApprovals,
-    sla_hours: payload.slaHours,
-    condition_json: payload.conditionJson,
-  });
+  const { data, error } = await service
+    .from("workflow_template_steps")
+    .insert({
+      template_id: id,
+      step_order: payload.stepOrder,
+      name: payload.name,
+      kind: payload.kind,
+      approver_mode: payload.approverMode,
+      approver_user_id: payload.approverUserId ?? null,
+      approver_department_id: payload.approverDepartmentId ?? null,
+      min_approvals: payload.minApprovals,
+      sla_hours: payload.slaHours,
+      condition_json: payload.conditionJson,
+    })
+    .select("id")
+    .single();
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, stepId: data.id });
 }

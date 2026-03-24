@@ -13,7 +13,9 @@ export async function GET(request: Request) {
   }
 
   const conversationId = new URL(request.url).searchParams.get("conversation") ?? undefined;
-  const data = await getMessagesWorkspaceData(conversationId);
+  const data = await getMessagesWorkspaceData(conversationId, {
+    markActiveConversationAsRead: true,
+  });
 
   return NextResponse.json({
     mode: data.mode,
