@@ -1,8 +1,11 @@
 "use client";
 
-import { useState, useTransition, type ReactNode } from "react";
+import Link from "next/link";
+import { useEffect, useEffectEvent, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { BellRing, CheckCheck, ShieldCheck } from "lucide-react";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { hasPublicSupabaseEnv } from "@/lib/supabase/config";
 import type { NotificationItem, NotificationPreference } from "@/lib/workflow/types";
 
 export function NotificationsCenter({
@@ -19,6 +22,79 @@ export function NotificationsCenter({
   const [isPending, startTransition] = useTransition();
 
   const unreadIds = items.filter((item) => !item.isRead).map((item) => item.id);
+  const loadNotifications = useEffectEvent(async () => {
+    try {
+      const response = await fetch("/api/notifications?limit=30", {
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        return;
+      }
+
+      const data = (await response.json()) as {
+        items?: NotificationItem[];
+      };
+
+      if (Array.isArray(data.items)) {
+        setItems(data.items);
+      }
+    } catch {
+      return;
+    }
+  });
+
+  useEffect(() => {
+    void loadNotifications();
+  }, []);
+
+  useEffect(() => {
+    if (!hasPublicSupabaseEnv()) {
+      return;
+    }
+
+    const supabase = createSupabaseBrowserClient();
+    let isDisposed = false;
+
+    async function connectRealtime() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user || isDisposed) {
+        return;
+      }
+
+      const channel = supabase
+        .channel("notifications:center")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "notifications",
+            filter: `user_id=eq.${user.id}`,
+          },
+          () => {
+            void loadNotifications();
+          },
+        )
+        .subscribe();
+
+      return channel;
+    }
+
+    const channelPromise = connectRealtime();
+
+    return () => {
+      isDisposed = true;
+      void channelPromise.then((channel) => {
+        if (channel) {
+          void supabase.removeChannel(channel);
+        }
+      });
+    };
+  }, []);
 
   function savePreferences(next: NotificationPreference) {
     setPreference(next);
@@ -224,8 +300,15 @@ export function NotificationsCenter({
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2 text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">
                   <span>{item.channel === "email" ? "Email" : "In-app"}</span>
-                  <span>· {item.category}</span>
-                  {item.requestReference ? <span>· {item.requestReference}</span> : null}
+                  <span>· {labelForNotificationCategory(item.category)}</span>
+                  {item.requestReference ? (
+                    <Link
+                      href={`/requests/${item.requestReference}`}
+                      className="font-medium text-[color:var(--foreground)]"
+                    >
+                      · {item.requestReference}
+                    </Link>
+                  ) : null}
                 </div>
               </article>
             ))
@@ -294,4 +377,23 @@ function ToggleRow({
       </button>
     </div>
   );
+}
+
+function labelForNotificationCategory(category: NotificationItem["category"]) {
+  switch (category) {
+    case "approval":
+      return "Approval";
+    case "message":
+      return "Message";
+    case "mention":
+      return "Mention";
+    case "sla":
+      return "SLA";
+    case "system":
+      return "Système";
+    case "digest":
+      return "Digest";
+    default:
+      return "Général";
+  }
 }

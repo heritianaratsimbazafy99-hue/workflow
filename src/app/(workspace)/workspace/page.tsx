@@ -259,14 +259,14 @@ export default async function WorkspaceDashboardPage() {
 
       <SurfaceCard>
         <SectionTitle
-          title="Base technique en transition live"
-          description="Le cockpit, les approvals et la messagerie sont maintenant branchés. Les dernières briques à finaliser sont l'admin workflow, les pièces jointes et le scheduler final."
+          title="Base technique live"
+          description="Le cockpit, les approvals, la messagerie, les emails transactionnels et le cron SLA sont maintenant branchés sur le produit."
         />
         <div className="grid gap-3 md:grid-cols-3">
           {[
             "Migration SQL versionnée pour workflow, notifications, audit et messagerie.",
             "Cockpit live branché à Supabase pour demandes, approvals et journal.",
-            "Endpoint cron conservé, scheduler final volontairement repoussé à la fin du projet.",
+            "Cron Vercel toutes les 10 minutes avec journalisation des runs.",
           ].map((item) => (
             <div
               key={item}

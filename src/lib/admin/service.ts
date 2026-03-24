@@ -1,5 +1,5 @@
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { getEmailConfig, hasCronSecret } from "@/lib/env/server";
+import { getEmailConfigHealth, hasCronSecret } from "@/lib/env/server";
 import {
   canUseSupabaseLiveMode,
   deriveUserHandle,
@@ -139,6 +139,10 @@ export type AdminControlTowerData = {
     cronProtected: boolean;
     appBaseUrl: string | null;
     cronEndpoint: string;
+    emailFrom: string | null;
+    emailReplyTo: string | null;
+    emailIssues: string[];
+    emailWarnings: string[];
   };
   departments: AdminDepartment[];
   profiles: AdminProfile[];
@@ -161,6 +165,10 @@ export async function getAdminControlTowerData(): Promise<AdminControlTowerData>
         cronProtected: false,
         appBaseUrl: null,
         cronEndpoint: "/api/cron/process-reminders",
+        emailFrom: null,
+        emailReplyTo: null,
+        emailIssues: [],
+        emailWarnings: [],
       },
       departments: [],
       profiles: [],
@@ -171,20 +179,21 @@ export async function getAdminControlTowerData(): Promise<AdminControlTowerData>
 
   const service = createSupabaseServiceRoleClient();
   const canManage = await canManageAdministration(actor, service);
-  const emailConfig = getEmailConfig();
-  const appBaseUrl = emailConfig.APP_BASE_URL ?? null;
+  const emailHealth = getEmailConfigHealth();
+  const appBaseUrl = emailHealth.appBaseUrlValid ? emailHealth.appBaseUrl : null;
   const ops = {
     actorEmail: actor.email,
-    emailProvider: emailConfig.EMAIL_PROVIDER,
-    emailConfigured:
-      emailConfig.EMAIL_PROVIDER === "resend"
-        ? Boolean(emailConfig.RESEND_API_KEY && emailConfig.EMAIL_FROM)
-        : Boolean(emailConfig.EMAIL_FROM),
+    emailProvider: emailHealth.provider,
+    emailConfigured: emailHealth.canSendTransactionalEmail,
     cronProtected: hasCronSecret(),
     appBaseUrl,
     cronEndpoint: appBaseUrl
       ? new URL("/api/cron/process-reminders", appBaseUrl).toString()
       : "/api/cron/process-reminders",
+    emailFrom: emailHealth.emailFrom,
+    emailReplyTo: emailHealth.emailReplyTo,
+    emailIssues: emailHealth.issues,
+    emailWarnings: emailHealth.warnings,
   };
 
   if (!canManage) {

@@ -23,7 +23,7 @@ Base produit pour une application interne de gestion des demandes et workflows d
 - un moteur d'approbation live: creation de demande, instanciation des etapes, decisions et audit
 - une page de connexion interne `/login` avec login/logout Supabase
 - une structure serveur pour les emails immediats via `EMAIL_PROVIDER=console|resend`
-- un `vercel.json` compatible `Vercel Hobby` sans cron actif pour le moment
+- un `vercel.json` avec cron actif toutes les 10 minutes pour les rappels SLA
 - une migration Supabase versionnee dans `supabase/migrations/20260323190000_init_workflow_core.sql`
 - une tour de controle admin `/admin` pour profils, types, champs et templates
 - un centre `/notifications` avec preferences in-app/email/digest
@@ -87,10 +87,11 @@ npm run dev
 
 Le cron appelle `GET /api/cron/process-reminders`.
 
-- en `Vercel Hobby`, aucun cron n'est active dans `vercel.json` pour eviter le blocage de deploy
-- l'endpoint est conserve et sera rebranche plus tard avec `Vercel Pro` ou un scheduler externe
-- la logique metier ne doit pas vivre dans le scheduler: il ne fait que reveiller le moteur
-- la logique SLA live est deja prete: rappels proches, escalades hors SLA et audit `workflow_sla_events`
+- `vercel.json` active maintenant un cron toutes les 10 minutes
+- l'endpoint reste compatible avec un scheduler externe
+- `CRON_SECRET` est verifie cote serveur et journalise dans `public.workflow_cron_runs`
+- la logique metier ne vit pas dans le scheduler: il ne fait que reveiller le moteur
+- la logique SLA live est prete: rappels proches, escalades hors SLA et audit `workflow_sla_events`
 
 ## Pieces jointes
 
@@ -99,13 +100,8 @@ Le cron appelle `GET /api/cron/process-reminders`.
 - ouverture securisee via `/api/requests/[id]/attachments/[attachmentId]`
 - les fichiers restent prives et passent par une URL signee courte cote serveur
 
-## Etape suivante recommandee
-
-1. brancher les pieces jointes Supabase Storage
-2. connecter un vrai provider email de production
-3. reactiver le scheduler final en fin de projet
-
 ## Guides ajoutes
 
 - installation et deploiement: `docs/setup-fast-track.md`
+- runbook production V1: `docs/production-v1-runbook.md`
 - SQL initial workflow + messagerie: `docs/sql/2026-03-23_init_workflow_core.sql`

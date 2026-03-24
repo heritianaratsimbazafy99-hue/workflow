@@ -24,6 +24,7 @@ import { SurfaceCard } from "@/components/workspace/ui";
 export function AdminControlTower({ data }: { data: AdminControlTowerData }) {
   const router = useRouter();
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [testEmailTarget, setTestEmailTarget] = useState(data.ops.actorEmail ?? "");
   const [isPending, startTransition] = useTransition();
 
   async function submitJson(url: string, method: string, body: unknown, successMessage: string) {
@@ -37,14 +38,18 @@ export function AdminControlTower({ data }: { data: AdminControlTowerData }) {
       body: JSON.stringify(body),
     });
 
-    const payload = (await response.json().catch(() => ({}))) as { error?: string };
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+      detail?: string;
+      note?: string;
+    };
 
     if (!response.ok) {
-      setFeedback(payload.error ?? "Opération impossible.");
+      setFeedback([payload.error, payload.detail].filter(Boolean).join(" · ") || "Opération impossible.");
       return;
     }
 
-    setFeedback(successMessage);
+    setFeedback(payload.note ?? successMessage);
     router.refresh();
   }
 
@@ -89,16 +94,26 @@ export function AdminControlTower({ data }: { data: AdminControlTowerData }) {
           title="Ops readiness"
           detail="Etat de la configuration email, protection cron et point d'entrée de production."
         />
-        <div className="grid gap-4 lg:grid-cols-4">
+        <div className="grid gap-4 lg:grid-cols-3 xl:grid-cols-6">
           <OpsTile
             label="Provider email"
             value={data.ops.emailProvider}
             detail={data.ops.emailConfigured ? "configuré" : "à compléter"}
           />
           <OpsTile
-            label="Email de test"
+            label="Email cible"
             value={data.ops.actorEmail ?? "n/a"}
             detail="adresse du compte connecté"
+          />
+          <OpsTile
+            label="EMAIL_FROM"
+            value={data.ops.emailFrom ?? "n/a"}
+            detail="expéditeur transactionnel"
+          />
+          <OpsTile
+            label="EMAIL_REPLY_TO"
+            value={data.ops.emailReplyTo ?? "n/a"}
+            detail="boîte de réponse"
           />
           <OpsTile
             label="Cron protégé"
@@ -111,31 +126,73 @@ export function AdminControlTower({ data }: { data: AdminControlTowerData }) {
             detail="base des liens email"
           />
         </div>
-        <div className="mt-5 flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            disabled={isPending}
-            onClick={() =>
-              handleAsync(async () =>
-                submitJson(
-                  "/api/admin/test-email",
-                  "POST",
-                  {},
-                  "Email de test déclenché.",
-                ),
-              )
-            }
-            className="rounded-full bg-[color:var(--foreground)] px-4 py-2 text-sm font-medium text-[color:var(--surface-strong)] disabled:opacity-60"
-          >
-            <span className="inline-flex items-center gap-2">
-              <Mail className="h-4 w-4" />
-              Envoyer un email de test
-            </span>
-          </button>
+        <div className="mt-5 rounded-[22px] border border-[color:var(--line)] bg-[color:var(--surface-strong)] p-4">
+          <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-[color:var(--foreground)]">
+                Destinataire du test email
+              </span>
+              <input
+                value={testEmailTarget}
+                onChange={(event) => setTestEmailTarget(event.target.value)}
+                placeholder="ops@entreprise.com"
+                className="w-full rounded-[18px] border border-[color:var(--line)] bg-white/85 px-4 py-3 text-sm text-[color:var(--foreground)] outline-none placeholder:text-[color:var(--muted)]"
+              />
+            </label>
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={() =>
+                handleAsync(async () =>
+                  submitJson(
+                    "/api/admin/test-email",
+                    "POST",
+                    {
+                      to: testEmailTarget.trim() || null,
+                    },
+                    "Email de test déclenché.",
+                  ),
+                )
+              }
+              className="rounded-full bg-[color:var(--foreground)] px-4 py-3 text-sm font-medium text-[color:var(--surface-strong)] disabled:opacity-60"
+            >
+              <span className="inline-flex items-center gap-2">
+                <Mail className="h-4 w-4" />
+                Envoyer un email de test
+              </span>
+            </button>
+          </div>
+          <p className="mt-3 text-sm leading-6 text-[color:var(--muted)]">
+            Utilise cette action pour valider le provider, le domaine d’envoi, le
+            bouton d’action et l’adresse de réponse.
+          </p>
+        </div>
+
+        <div className="mt-5 flex flex-wrap items-start gap-3">
           <p className="text-sm text-[color:var(--muted)]">
             Endpoint cron prêt: <span className="font-mono">{data.ops.cronEndpoint}</span>
           </p>
         </div>
+        {data.ops.emailIssues.length > 0 || data.ops.emailWarnings.length > 0 ? (
+          <div className="mt-5 grid gap-3 lg:grid-cols-2">
+            {data.ops.emailIssues.map((issue) => (
+              <div
+                key={issue}
+                className="rounded-[20px] border border-[#f3b7a8] bg-[#fff1ed] px-4 py-3 text-sm text-[#8f3c25]"
+              >
+                {issue}
+              </div>
+            ))}
+            {data.ops.emailWarnings.map((warning) => (
+              <div
+                key={warning}
+                className="rounded-[20px] border border-[#eadcb7] bg-[#fff8e7] px-4 py-3 text-sm text-[#7b5f18]"
+              >
+                {warning}
+              </div>
+            ))}
+          </div>
+        ) : null}
       </SurfaceCard>
 
       <section className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">

@@ -3,6 +3,7 @@
 import {
   useDeferredValue,
   useEffect,
+  useEffectEvent,
   useMemo,
   useState,
   useTransition,
@@ -31,12 +32,14 @@ import type {
 
 type RuntimeMode = "demo" | "live" | "connecting";
 
-type MessagesApiResponse = {
+type MessagesWorkspaceApiResponse = {
   mode: "demo" | "live";
   actor?: {
     id: string;
   };
-  items?: ConversationMessage[];
+  conversations?: ConversationPreview[];
+  activeConversationId?: string | null;
+  messages?: ConversationMessage[];
 };
 
 export function MessagesWorkspace({
@@ -93,52 +96,53 @@ export function MessagesWorkspace({
     );
   }, [conversations, deferredSearch]);
 
+  const refreshWorkspace = useEffectEvent(async (conversationId: string | null) => {
+    const query = conversationId
+      ? `?conversation=${encodeURIComponent(conversationId)}`
+      : "";
+
+    try {
+      const response = await fetch(`/api/messages/workspace${query}`, {
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        return;
+      }
+
+      const data = (await response.json()) as MessagesWorkspaceApiResponse;
+      const nextConversations = Array.isArray(data.conversations)
+        ? data.conversations
+        : initialConversations;
+      const nextActiveConversationId =
+        data.activeConversationId ?? conversationId ?? nextConversations[0]?.id ?? null;
+
+      setConversations(nextConversations);
+      setActiveConversationId(nextActiveConversationId);
+
+      if (nextActiveConversationId && Array.isArray(data.messages)) {
+        setMessagesByConversation((current) => ({
+          ...current,
+          [nextActiveConversationId]: data.messages ?? [],
+        }));
+      }
+
+      if (data.actor?.id) {
+        setRuntimeActorId(data.actor.id);
+      }
+
+      setRuntimeMode(data.mode);
+    } catch {
+      setRuntimeMode("demo");
+    }
+  });
+
   useEffect(() => {
     if (!activeConversationKey) {
       return;
     }
 
-    let ignore = false;
-
-    async function loadThread() {
-      try {
-        const response = await fetch(
-          `/api/messages?conversationId=${activeConversationKey}`,
-          {
-            cache: "no-store",
-          },
-        );
-
-        if (!response.ok) {
-          return;
-        }
-
-        const data = (await response.json()) as MessagesApiResponse;
-
-        if (ignore || !Array.isArray(data.items)) {
-          return;
-        }
-
-        setMessagesByConversation((current) => ({
-          ...current,
-          [activeConversationKey]: data.items ?? [],
-        }));
-        if (data.actor?.id) {
-          setRuntimeActorId(data.actor.id);
-        }
-        setRuntimeMode(data.mode);
-      } catch {
-        if (!ignore) {
-          setRuntimeMode("demo");
-        }
-      }
-    }
-
-    void loadThread();
-
-    return () => {
-      ignore = true;
-    };
+    void refreshWorkspace(activeConversationKey);
   }, [activeConversationKey]);
 
   useEffect(() => {
@@ -179,6 +183,7 @@ export function MessagesWorkspace({
               setMessagesByConversation,
               setConversations,
             );
+            void refreshWorkspace(activeConversationKey);
             setRuntimeMode("live");
           },
         )
@@ -202,6 +207,59 @@ export function MessagesWorkspace({
       });
     };
   }, [activeConversationKey, runtimeActorId]);
+
+  useEffect(() => {
+    if (!hasPublicSupabaseEnv()) {
+      return;
+    }
+
+    const supabase = createSupabaseBrowserClient();
+    let isDisposed = false;
+
+    async function connectNotificationBridge() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user || isDisposed) {
+        return;
+      }
+
+      const channel = supabase
+        .channel(`message-notifications:${currentUser.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "notifications",
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            const category = payload.new.category;
+
+            if (category === "message" || category === "mention") {
+              void refreshWorkspace(activeConversationId ?? activeConversationKey);
+              setRuntimeMode("live");
+            }
+          },
+        )
+        .subscribe();
+
+      return channel;
+    }
+
+    const channelPromise = connectNotificationBridge();
+
+    return () => {
+      isDisposed = true;
+      void channelPromise.then((channel) => {
+        if (channel) {
+          void supabase.removeChannel(channel);
+        }
+      });
+    };
+  }, [activeConversationId, activeConversationKey, currentUser.id]);
 
   function switchConversation(nextConversationId: string) {
     startTransition(() => {

@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { dispatchNotifications } from "@/lib/notifications/service";
+import { mapNotificationRowsToItems, type NotificationViewRow } from "@/lib/notifications/view";
 import {
   canUseSupabaseLiveMode,
   createDemoNotification,
   getDemoNotifications,
-  mapNotificationRowToView,
   resolveRuntimeActor,
 } from "@/lib/workflow/runtime";
 
@@ -31,18 +31,6 @@ const markReadSchema = z.object({
   ids: z.array(z.uuid()).min(1),
 });
 
-type NotificationRow = {
-  id: string;
-  user_id: string;
-  request_id: string | null;
-  channel: "in_app" | "email";
-  category: "general" | "approval" | "message" | "mention" | "sla" | "system" | "digest";
-  title: string;
-  body: string;
-  read_at: string | null;
-  created_at: string;
-};
-
 type RecipientRow = {
   id: string;
   email: string | null;
@@ -51,37 +39,50 @@ type RecipientRow = {
 
 export async function GET(request: Request) {
   const actor = await resolveRuntimeActor();
-  const limit = Number(new URL(request.url).searchParams.get("limit") ?? "8");
+  const requestedLimit = Number(new URL(request.url).searchParams.get("limit") ?? "8");
+  const limit = Number.isFinite(requestedLimit)
+    ? Math.max(1, Math.min(50, Math.round(requestedLimit)))
+    : 8;
 
   if (!canUseSupabaseLiveMode(actor)) {
+    const items = getDemoNotifications(actor.id).slice(0, limit);
     return NextResponse.json({
       mode: "demo",
       actor,
-      items: getDemoNotifications(actor.id).slice(0, limit),
+      items,
+      unreadCount: items.filter((item) => !item.isRead).length,
     });
   }
 
   const service = createSupabaseServiceRoleClient();
-  const { data, error } = await service
-    .from("notifications")
-    .select("id, user_id, request_id, channel, category, title, body, read_at, created_at")
-    .eq("user_id", actor.id)
-    .order("created_at", { ascending: false })
-    .limit(limit);
+  const [notificationsResult, unreadResult] = await Promise.all([
+    service
+      .from("notifications")
+      .select("id, user_id, request_id, channel, category, title, body, read_at, created_at")
+      .eq("user_id", actor.id)
+      .order("created_at", { ascending: false })
+      .limit(limit),
+    service
+      .from("notifications")
+      .select("id", { head: true, count: "exact" })
+      .eq("user_id", actor.id)
+      .is("read_at", null),
+  ]);
 
-  if (error) {
+  if (notificationsResult.error) {
     return NextResponse.json(
       { error: "Unable to load notifications." },
       { status: 500 },
     );
   }
 
+  const rows = (notificationsResult.data as NotificationViewRow[] | null) ?? [];
+
   return NextResponse.json({
     mode: "live",
     actor,
-    items: ((data as NotificationRow[] | null) ?? []).map((item) =>
-      mapNotificationRowToView(item),
-    ),
+    unreadCount: unreadResult.count ?? 0,
+    items: await mapNotificationRowsToItems(service, rows),
   });
 }
 

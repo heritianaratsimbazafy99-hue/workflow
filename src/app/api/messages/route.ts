@@ -238,6 +238,7 @@ export async function POST(request: Request) {
     payload.body,
     allMemberProfiles.filter((profile) => profile.id !== actor.id),
   );
+  const mentionRecipientIds = new Set(mentionRecipients.map((recipient) => recipient.id));
   const mentionLabels = mentionRecipients.map((recipient) =>
     deriveUserLabel(recipient, { compact: true }),
   );
@@ -266,25 +267,28 @@ export async function POST(request: Request) {
   if (memberIds.length > 0) {
     const recipients = allMemberProfiles
       .filter((recipient) => recipient.id !== actor.id)
+      .filter((recipient) => !mentionRecipientIds.has(recipient.id))
       .map((recipient) => ({
         id: recipient.id,
         email: recipient.email,
         fullName: recipient.full_name,
       }));
 
-    const dispatchResult = await dispatchNotifications({
-      recipients,
-      title: `Nouveau message · ${conversation?.title ?? "Canal dossier"}`,
-      body: `${actor.fullName} : ${truncateText(payload.body, 120)}`,
-      category: "message",
-      requestId: conversation?.request_id ?? null,
-      sendEmail: payload.sendEmail,
-      actionPath: `/messages?conversation=${payload.conversationId}`,
-      actionLabel: "Voir la conversation",
-    });
+    if (recipients.length > 0) {
+      const dispatchResult = await dispatchNotifications({
+        recipients,
+        title: `Nouveau message · ${conversation?.title ?? "Canal dossier"}`,
+        body: `${actor.fullName} : ${truncateText(payload.body, 120)}`,
+        category: "message",
+        requestId: conversation?.request_id ?? null,
+        sendEmail: payload.sendEmail,
+        actionPath: `/messages?conversation=${payload.conversationId}`,
+        actionLabel: "Voir la conversation",
+      });
 
-    notificationsInserted = dispatchResult.inserted;
-    emailsSent = dispatchResult.emailed;
+      notificationsInserted = dispatchResult.inserted;
+      emailsSent = dispatchResult.emailed;
+    }
   }
 
   if (mentionRecipients.length > 0) {

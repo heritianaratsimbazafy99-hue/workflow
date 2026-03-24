@@ -210,15 +210,18 @@ vercel --prod
 
 ## 9. Cron en production
 
-Pour le moment, `vercel.json` ne declare aucun cron afin de rester compatible avec `Vercel Hobby`.
+Le repo declare maintenant un cron Vercel dans `vercel.json`.
+
+Au `28 janvier 2026`, la documentation officielle Vercel indique que les cron jobs sont disponibles sur tous les plans.
 
 Le point important:
 
 - l'endpoint cron existe deja dans l'application
-- le scheduler sera rebranche a la fin du projet
-- plus tard, tu pourras choisir `Vercel Pro` ou un scheduler externe
+- `CRON_SECRET` securise l'appel
+- la logique metier reste dans l'application, pas dans le scheduler
+- un scheduler externe reste possible si tu le preferes
 
-L'URL a appeler sera:
+L'URL a appeler reste:
 
 ```text
 https://YOUR_DOMAIN/api/cron/process-reminders
@@ -246,7 +249,7 @@ Le prochain bloc a construire est:
 1. seed SQL complet pour utilisateurs, profils et demandes de démo
 2. upload de pièces jointes dans Supabase Storage
 3. vrai provider email transactionnel
-4. rebrancher le scheduler cron en fin de projet
+4. verifier les logs `workflow_cron_runs` apres deploiement
 5. durcissement final RLS / permissions
 
 Quand tu veux, je te prepare l'etape suivante avec:

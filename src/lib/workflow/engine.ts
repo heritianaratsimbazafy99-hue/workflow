@@ -201,6 +201,7 @@ type RequestDetailResult = {
   conversation: ConversationPreview | null;
   messages: ConversationMessage[];
   canAct: boolean;
+  canResubmit: boolean;
   currentApproverLabel: string | null;
 };
 
@@ -259,6 +260,25 @@ type ApplyWorkflowDecisionResult =
       actor: RuntimeActor;
       reference: string;
       status: "in_review" | "needs_changes" | "approved" | "rejected";
+    }
+  | {
+      mode: "demo";
+      actor: RuntimeActor;
+      status: "demo";
+      note: string;
+    };
+
+type ResubmitWorkflowRequestInput = {
+  requestReferenceOrId: string;
+  comment: string;
+};
+
+type ResubmitWorkflowRequestResult =
+  | {
+      mode: "live";
+      actor: RuntimeActor;
+      reference: string;
+      status: "in_review";
     }
   | {
       mode: "demo";
@@ -649,7 +669,7 @@ export async function getWorkspaceDashboardData(): Promise<WorkspaceDashboardRes
     alerts.push({
       id: "overdue-steps",
       title: `${overdueSteps} étape(s) hors SLA`,
-      detail: "Les relances automatiques sont prêtes, mais le scheduler final sera réactivé en fin de projet.",
+      detail: "Le cron production surveille déjà ces dossiers. Vérifie les runs et les destinataires si le volume grimpe.",
       tone: "critical",
     });
   }
@@ -715,6 +735,7 @@ export async function getRequestDetailData(
       conversation: getConversationPreview(request.conversationId) ?? null,
       messages: getConversationMessages(request.conversationId),
       canAct: false,
+      canResubmit: false,
       currentApproverLabel: null,
     };
   }
@@ -844,6 +865,8 @@ export async function getRequestDetailData(
       step.status === "pending" &&
       step.step_order === requestRow.current_step_order,
   );
+  const canResubmit =
+    requestRow.requester_id === actor.id && requestRow.status === "needs_changes";
   const currentSteps = steps.filter(
     (step) => step.step_order === requestRow.current_step_order && step.status === "pending",
   );
@@ -1000,6 +1023,7 @@ export async function getRequestDetailData(
     conversation: viewConversation,
     messages: conversationMessages,
     canAct,
+    canResubmit,
     currentApproverLabel: currentApproverLabel || null,
   };
 }
@@ -1554,6 +1578,202 @@ export async function applyWorkflowDecision(
     actor,
     reference: request.reference,
     status: requestStatus,
+  };
+}
+
+export async function resubmitWorkflowRequest(
+  input: ResubmitWorkflowRequestInput,
+): Promise<ResubmitWorkflowRequestResult> {
+  const actor = await resolveRuntimeActor();
+
+  if (!canUseSupabaseLiveMode(actor)) {
+    return {
+      mode: "demo",
+      actor,
+      status: "demo",
+      note: "Mode démo: connecte Supabase Auth pour resoumettre une vraie demande.",
+    };
+  }
+
+  const service = createSupabaseServiceRoleClient();
+  const request = await findAccessibleRequestByReferenceOrId(
+    service,
+    actor,
+    input.requestReferenceOrId,
+  );
+
+  if (!request) {
+    throw new Error("Request not found.");
+  }
+
+  if (request.requester_id !== actor.id) {
+    throw new Error("Seul le demandeur peut resoumettre ce dossier.");
+  }
+
+  if (request.status !== "needs_changes") {
+    throw new Error("Cette demande n'est pas en attente de corrections.");
+  }
+
+  const { data: stepRows } = await service
+    .from("request_step_instances")
+    .select(
+      "id, request_id, template_step_id, step_order, name, kind, approver_id, status, assigned_at, acted_at, due_at, comment",
+    )
+    .eq("request_id", request.id)
+    .order("step_order", { ascending: true });
+
+  const steps = (stepRows as RequestStepInstanceRow[] | null) ?? [];
+  const returnedStep = steps.find((step) => step.status === "returned");
+
+  if (!returnedStep) {
+    throw new Error("Aucune étape à réactiver n'a été trouvée pour cette demande.");
+  }
+
+  const stepsToReset = steps.filter(
+    (step) =>
+      step.step_order >= returnedStep.step_order &&
+      (step.status === "returned" || step.status === "skipped"),
+  );
+  const templateStepIds = uniqueValues(
+    stepsToReset
+      .map((step) => step.template_step_id)
+      .filter((value): value is string => Boolean(value)),
+  );
+  const { data: templateStepRows } =
+    templateStepIds.length > 0
+      ? await service
+          .from("workflow_template_steps")
+          .select("id, sla_hours")
+          .in("id", templateStepIds)
+      : { data: [] };
+  const slaHoursByTemplateStepId = ((templateStepRows as Array<{ id: string; sla_hours: number }> | null) ?? []).reduce<
+    Record<string, number>
+  >((accumulator, row) => {
+    accumulator[row.id] = row.sla_hours;
+    return accumulator;
+  }, {});
+  const now = Date.now();
+
+  await Promise.all(
+    stepsToReset.map((step) =>
+      service
+        .from("request_step_instances")
+        .update({
+          status: "pending",
+          acted_at: null,
+          due_at: step.template_step_id
+            ? new Date(
+                now + (slaHoursByTemplateStepId[step.template_step_id] ?? 24) * 60 * 60 * 1000,
+              ).toISOString()
+            : null,
+        })
+        .eq("id", step.id),
+    ),
+  );
+
+  const reactivatedCurrentStep = stepsToReset.find((step) => step.id === returnedStep.id) ?? returnedStep;
+  const currentDueAt = reactivatedCurrentStep.template_step_id
+    ? new Date(
+        now +
+          (slaHoursByTemplateStepId[reactivatedCurrentStep.template_step_id] ?? 24) *
+            60 *
+            60 *
+            1000,
+      ).toISOString()
+    : null;
+
+  await service
+    .from("requests")
+    .update({
+      status: "in_review",
+      current_step_order: returnedStep.step_order,
+      current_assignee_id: returnedStep.approver_id,
+      due_at: currentDueAt,
+      decided_at: null,
+    })
+    .eq("id", request.id);
+
+  await service.from("request_comments").insert({
+    request_id: request.id,
+    author_id: actor.id,
+    body: input.comment.trim() || "Demande resoumise après corrections.",
+    is_internal: true,
+  });
+
+  await service.from("audit_logs").insert({
+    actor_id: actor.id,
+    entity_type: "request",
+    entity_id: request.id,
+    action: "request_resubmitted",
+    payload: {
+      step: returnedStep.name,
+      comment: input.comment.trim(),
+    },
+  });
+
+  const [profilesResult, conversationResult] = await Promise.all([
+    service
+      .from("profiles")
+      .select("id, email, full_name, display_name, username, role, department_id, job_title"),
+    service
+      .from("conversations")
+      .select("id, request_id, title")
+      .eq("request_id", request.id)
+      .eq("type", "request")
+      .maybeSingle(),
+  ]);
+  const profiles = (profilesResult.data as ProfileRow[] | null) ?? [];
+  const reopenedApprover = returnedStep.approver_id
+    ? profiles.find((profile) => profile.id === returnedStep.approver_id) ?? null
+    : null;
+  const conversation = (conversationResult.data as ConversationRow | null) ?? null;
+
+  if (conversation) {
+    if (returnedStep.approver_id) {
+      await service.from("conversation_members").upsert(
+        {
+          conversation_id: conversation.id,
+          user_id: returnedStep.approver_id,
+        },
+        { onConflict: "conversation_id,user_id", ignoreDuplicates: true },
+      );
+    }
+
+    await service.from("messages").insert({
+      conversation_id: conversation.id,
+      sender_id: null,
+      kind: "system",
+      body: `${actor.fullName} a resoumis la demande ${request.reference} après corrections.`,
+      metadata: {
+        sender_name: "Workflow Engine",
+      },
+    });
+  }
+
+  if (reopenedApprover) {
+    await dispatchNotifications({
+      recipients: [
+        {
+          id: reopenedApprover.id,
+          email: reopenedApprover.email,
+          fullName: reopenedApprover.full_name,
+        },
+      ],
+      title: `Demande resoumise · ${request.reference}`,
+      body: `${request.title} a été corrigée et revient dans l'étape ${returnedStep.name}.`,
+      category: "approval",
+      requestId: request.id,
+      sendEmail: true,
+      actionPath: `/requests/${request.reference}`,
+      actionLabel: "Reprendre le dossier",
+    });
+  }
+
+  return {
+    mode: "live",
+    actor,
+    reference: request.reference,
+    status: "in_review",
   };
 }
 

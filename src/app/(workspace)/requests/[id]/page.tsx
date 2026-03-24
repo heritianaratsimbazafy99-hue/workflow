@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { RequestAttachmentsPanel } from "@/components/workspace/request-attachments-panel";
 import { RequestDecisionPanel } from "@/components/workspace/request-decision-panel";
+import { RequestLiveRefresh } from "@/components/workspace/request-live-refresh";
+import { RequestResubmitPanel } from "@/components/workspace/request-resubmit-panel";
 import { getRequestDetailData } from "@/lib/workflow/engine";
 import {
   DueBadge,
@@ -34,10 +36,26 @@ export default async function RequestDetailPage({
     notFound();
   }
 
-  const { actor, request, conversation, messages, history, canAct, currentApproverLabel } = detail;
+  const {
+    actor,
+    request,
+    conversation,
+    messages,
+    history,
+    canAct,
+    canResubmit,
+    currentApproverLabel,
+  } = detail;
 
   return (
     <div className="space-y-6">
+      {actor.mode === "live" ? (
+        <RequestLiveRefresh
+          requestId={request.id}
+          conversationId={request.conversationId || null}
+        />
+      ) : null}
+
       <PageHeader
         eyebrow={request.reference}
         title={request.title}
@@ -289,6 +307,10 @@ export default async function RequestDetailPage({
             requestReference={request.reference}
             canAct={canAct}
             currentApproverLabel={currentApproverLabel}
+          />
+          <RequestResubmitPanel
+            requestReference={request.reference}
+            canResubmit={canResubmit}
           />
 
           <SurfaceCard>

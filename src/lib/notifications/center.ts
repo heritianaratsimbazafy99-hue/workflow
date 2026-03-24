@@ -3,10 +3,10 @@ import {
   defaultNotificationPreference,
   mapPreferenceRow,
 } from "@/lib/notifications/preferences";
+import { mapNotificationRowsToItems, type NotificationViewRow } from "@/lib/notifications/view";
 import {
   canUseSupabaseLiveMode,
   getDemoNotifications,
-  mapNotificationRowToView,
   resolveRuntimeActor,
 } from "@/lib/workflow/runtime";
 import type {
@@ -14,18 +14,6 @@ import type {
   NotificationItem,
   NotificationPreference,
 } from "@/lib/workflow/types";
-
-type NotificationRow = {
-  id: string;
-  user_id: string;
-  request_id: string | null;
-  channel: "in_app" | "email";
-  category: "general" | "approval" | "message" | "mention" | "sla" | "system" | "digest";
-  title: string;
-  body: string;
-  read_at: string | null;
-  created_at: string;
-};
 
 type PreferenceRow = {
   user_id: string;
@@ -82,8 +70,9 @@ export async function getNotificationCenterData(): Promise<NotificationCenterDat
   return {
     mode: "live",
     actor,
-    items: ((notificationsResult.data as NotificationRow[] | null) ?? []).map((item) =>
-      mapNotificationRowToView(item),
+    items: await mapNotificationRowsToItems(
+      service,
+      (notificationsResult.data as NotificationViewRow[] | null) ?? [],
     ),
     preference: preferenceResult.data
       ? mapPreferenceRow(preferenceResult.data as PreferenceRow)

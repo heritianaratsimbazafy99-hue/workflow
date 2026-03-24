@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import { BellRing, CheckCheck, RadioTower } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { hasPublicSupabaseEnv } from "@/lib/supabase/config";
@@ -19,48 +19,42 @@ export function RealtimeNotifications({
   const [isOpen, setIsOpen] = useState(false);
   const [items, setItems] = useState(initialItems);
   const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>("demo");
-
-  const unreadCount = useMemo(
-    () => items.filter((item) => !item.isRead).length,
-    [items],
+  const [unreadCount, setUnreadCount] = useState(
+    initialItems.filter((item) => !item.isRead).length,
   );
 
-  useEffect(() => {
-    let ignore = false;
+  const hasUnreadItems = useMemo(() => unreadCount > 0, [unreadCount]);
 
-    async function loadInbox() {
-      try {
-        const response = await fetch("/api/notifications?limit=8", {
-          cache: "no-store",
-        });
+  const loadInbox = useEffectEvent(async () => {
+    try {
+      const response = await fetch("/api/notifications?limit=8", {
+        cache: "no-store",
+      });
 
-        if (!response.ok) {
-          return;
-        }
-
-        const data = (await response.json()) as {
-          mode: "demo" | "live";
-          items?: NotificationItem[];
-        };
-
-        if (ignore) {
-          return;
-        }
-
-        setItems(Array.isArray(data.items) ? data.items : initialItems);
-        setRuntimeMode(data.mode);
-      } catch {
-        if (!ignore) {
-          setRuntimeMode("demo");
-        }
+      if (!response.ok) {
+        return;
       }
+
+      const data = (await response.json()) as {
+        mode: "demo" | "live";
+        unreadCount?: number;
+        items?: NotificationItem[];
+      };
+
+      setItems(Array.isArray(data.items) ? data.items : initialItems);
+      setUnreadCount(
+        typeof data.unreadCount === "number"
+          ? data.unreadCount
+          : (data.items ?? initialItems).filter((item) => !item.isRead).length,
+      );
+      setRuntimeMode(data.mode);
+    } catch {
+      setRuntimeMode("demo");
     }
+  });
 
+  useEffect(() => {
     void loadInbox();
-
-    return () => {
-      ignore = true;
-    };
   }, [initialItems]);
 
   useEffect(() => {
@@ -88,28 +82,13 @@ export function RealtimeNotifications({
         .on(
           "postgres_changes",
           {
-            event: "INSERT",
+            event: "*",
             schema: "public",
             table: "notifications",
             filter: `user_id=eq.${user.id}`,
           },
-          (payload) => {
-            const item = mapRealtimeNotification(payload.new);
-            setItems((current) => upsertNotification(current, item));
-            setRuntimeMode("live");
-          },
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "UPDATE",
-            schema: "public",
-            table: "notifications",
-            filter: `user_id=eq.${user.id}`,
-          },
-          (payload) => {
-            const item = mapRealtimeNotification(payload.new);
-            setItems((current) => upsertNotification(current, item));
+          () => {
+            void loadInbox();
             setRuntimeMode("live");
           },
         )
@@ -151,6 +130,7 @@ export function RealtimeNotifications({
           : item,
       ),
     );
+    setUnreadCount(0);
 
     try {
       await fetch("/api/notifications", {
@@ -215,6 +195,7 @@ export function RealtimeNotifications({
             <button
               type="button"
               onClick={markAllAsRead}
+              disabled={!hasUnreadItems}
               className="inline-flex items-center gap-2 font-medium text-[color:var(--foreground)]"
             >
               <CheckCheck className="h-4 w-4" />
@@ -229,8 +210,9 @@ export function RealtimeNotifications({
               </div>
             ) : (
               items.map((item) => (
-                <div
+                <Link
                   key={item.id}
+                  href={item.requestReference ? `/requests/${item.requestReference}` : "/notifications"}
                   className={`rounded-[24px] border p-4 ${
                     item.isRead
                       ? "border-[color:var(--line)] bg-white/70"
@@ -250,9 +232,10 @@ export function RealtimeNotifications({
                   </p>
                   <div className="mt-3 flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">
                     <span>{item.channel === "email" ? "Email" : "In-app"}</span>
+                    <span>· {labelForNotificationCategory(item.category)}</span>
                     {item.requestReference ? <span>· {item.requestReference}</span> : null}
                   </div>
-                </div>
+                </Link>
               ))
             )}
           </div>
@@ -268,55 +251,21 @@ export function RealtimeNotifications({
   );
 }
 
-function upsertNotification(
-  current: NotificationItem[],
-  incoming: NotificationItem,
-) {
-  const existingIndex = current.findIndex((item) => item.id === incoming.id);
-
-  if (existingIndex === -1) {
-    return [incoming, ...current].slice(0, 8);
+function labelForNotificationCategory(category: NotificationItem["category"]) {
+  switch (category) {
+    case "approval":
+      return "Approval";
+    case "message":
+      return "Message";
+    case "mention":
+      return "Mention";
+    case "sla":
+      return "SLA";
+    case "system":
+      return "Système";
+    case "digest":
+      return "Digest";
+    default:
+      return "Général";
   }
-
-  return current.map((item) => (item.id === incoming.id ? incoming : item));
-}
-
-function mapRealtimeNotification(payload: Record<string, unknown>): NotificationItem {
-  return {
-    id: String(payload.id),
-    userId: String(payload.user_id),
-    title: String(payload.title ?? "Notification"),
-    body: String(payload.body ?? ""),
-    createdAt: formatClockValue(payload.created_at),
-    isRead: Boolean(payload.read_at),
-    channel: payload.channel === "email" ? "email" : "in_app",
-    category:
-      payload.category === "approval" ||
-      payload.category === "message" ||
-      payload.category === "mention" ||
-      payload.category === "sla" ||
-      payload.category === "system" ||
-      payload.category === "digest"
-        ? payload.category
-        : "general",
-    requestReference:
-      typeof payload.request_id === "string" ? payload.request_id : null,
-  };
-}
-
-function formatClockValue(value: unknown) {
-  if (typeof value !== "string") {
-    return "Maintenant";
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat("fr-FR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
 }
