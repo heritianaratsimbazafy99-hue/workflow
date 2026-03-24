@@ -126,17 +126,19 @@ Dans le projet Vercel, ajoute en `Production` :
 
 ### 3.2 Point important sur le cron Vercel
 
-Au `28 janvier 2026`, la documentation officielle Vercel indique que les cron jobs sont disponibles sur tous les plans.
+Au `24 mars 2026`, le projet Vercel actuel echoue au deploiement quand `crons` est declare dans `vercel.json`.
 
-Le repo active maintenant :
+Le repo n'active donc plus :
 
 - `/Users/heritiana/Documents/workflow/vercel.json`
-- exécution toutes les `10 minutes`
-- endpoint `GET /api/cron/process-reminders`
+- aucune declaration `crons`
+- tout le moteur reste dans l'endpoint `GET /api/cron/process-reminders`
 
-Si `CRON_SECRET` est défini dans Vercel, Vercel enverra automatiquement :
+Conclusion pragmatique pour cette V1 interne :
 
-- `Authorization: Bearer <CRON_SECRET>`
+- on garde Vercel pour l'hebergement
+- on garde l'endpoint cron pret dans l'application
+- on branche un scheduler externe pour les runs
 
 ### 3.3 Déployer
 
@@ -144,14 +146,9 @@ Si `CRON_SECRET` est défini dans Vercel, Vercel enverra automatiquement :
 vercel --prod
 ```
 
-Puis contrôle dans `Project Settings > Cron Jobs` :
-
-- présence du job `/api/cron/process-reminders`
-- statut actif
-
 ## 4. Scheduler externe de secours
 
-Le produit reste compatible avec un scheduler externe si tu préfères ne pas dépendre du cron Vercel.
+Le scheduler externe devient la strategie recommandee pour ce projet.
 
 Le scheduler doit appeler :
 

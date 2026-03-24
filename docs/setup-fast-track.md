@@ -210,16 +210,15 @@ vercel --prod
 
 ## 9. Cron en production
 
-Le repo declare maintenant un cron Vercel dans `vercel.json`.
-
-Au `28 janvier 2026`, la documentation officielle Vercel indique que les cron jobs sont disponibles sur tous les plans.
+Au `24 mars 2026`, le projet Vercel actuel echoue au deploiement quand `crons` est declare dans `vercel.json`.
 
 Le point important:
 
 - l'endpoint cron existe deja dans l'application
 - `CRON_SECRET` securise l'appel
 - la logique metier reste dans l'application, pas dans le scheduler
-- un scheduler externe reste possible si tu le preferes
+- le repo ne declare donc plus de cron Vercel tant que ce projet reste bloque en Hobby
+- un scheduler externe devient la strategie recommandee
 
 L'URL a appeler reste:
 

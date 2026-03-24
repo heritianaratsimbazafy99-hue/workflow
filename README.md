@@ -6,7 +6,6 @@ Base produit pour une application interne de gestion des demandes et workflows d
 
 - `Next.js` pour l'interface et les routes serveur
 - `Supabase` pour Postgres, Auth, Storage et temps reel
-- `Vercel` pour l'hebergement et le cron
 - `Vercel` pour l'hebergement
 - `Resend` ou `Postmark` pour les emails transactionnels
 
@@ -23,7 +22,7 @@ Base produit pour une application interne de gestion des demandes et workflows d
 - un moteur d'approbation live: creation de demande, instanciation des etapes, decisions et audit
 - une page de connexion interne `/login` avec login/logout Supabase
 - une structure serveur pour les emails immediats via `EMAIL_PROVIDER=console|resend`
-- un `vercel.json` avec cron actif toutes les 10 minutes pour les rappels SLA
+- un endpoint cron securise pret pour un scheduler externe ou un cron Vercel plus tard
 - une migration Supabase versionnee dans `supabase/migrations/20260323190000_init_workflow_core.sql`
 - une tour de controle admin `/admin` pour profils, types, champs et templates
 - un centre `/notifications` avec preferences in-app/email/digest
@@ -87,8 +86,9 @@ npm run dev
 
 Le cron appelle `GET /api/cron/process-reminders`.
 
-- `vercel.json` active maintenant un cron toutes les 10 minutes
-- l'endpoint reste compatible avec un scheduler externe
+- au `24 mars 2026`, le projet Vercel actuel bloque le deploiement quand `crons` est declare dans `vercel.json`
+- le repo n'active donc plus le cron Vercel pour garder un deploiement stable en Hobby
+- l'endpoint est pret pour un scheduler externe
 - `CRON_SECRET` est verifie cote serveur et journalise dans `public.workflow_cron_runs`
 - la logique metier ne vit pas dans le scheduler: il ne fait que reveiller le moteur
 - la logique SLA live est prete: rappels proches, escalades hors SLA et audit `workflow_sla_events`
