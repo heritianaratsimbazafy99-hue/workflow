@@ -9,6 +9,7 @@ import {
   PageHeader,
   PillLink,
   SectionTitle,
+  SummaryStat,
   SurfaceCard,
 } from "@/components/workspace/ui";
 
@@ -28,6 +29,27 @@ export default async function NewRequestPage() {
           </>
         }
       />
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <SummaryStat
+          label="Types disponibles"
+          value={String(catalog.requestTypes.length)}
+          icon={FileStack}
+          detail="Catalogue actif"
+        />
+        <SummaryStat
+          label="Templates branchés"
+          value={String(catalog.templates.length)}
+          icon={SendHorizonal}
+          detail="Workflows disponibles"
+        />
+        <SummaryStat
+          label="Mode runtime"
+          value={catalog.mode === "live" ? "LIVE" : "DEMO"}
+          icon={Paperclip}
+          detail="Création dossier"
+        />
+      </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.08fr_0.92fr]">
         <SurfaceCard>

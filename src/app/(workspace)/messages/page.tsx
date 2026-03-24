@@ -44,16 +44,19 @@ export default async function MessagesPage({
           label="Conversations actives"
           value={String(data.conversations.length)}
           icon={MessageSquareMore}
+          detail="Canaux ouverts"
         />
         <SummaryStat
           label="Participants visibles"
           value={String(uniqueParticipants.size)}
           icon={Users}
+          detail="Personnes exposées"
         />
         <SummaryStat
           label="Emails immédiats prêts"
           value={data.mode === "live" ? "LIVE" : "ON"}
           icon={Mail}
+          detail={data.mode === "live" ? "Serveur branché" : "Mode démonstration"}
         />
       </div>
 

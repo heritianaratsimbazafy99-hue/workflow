@@ -415,8 +415,8 @@ function SectionHeader({
   detail: string;
 }) {
   return (
-    <div className="mb-5 flex items-start gap-3">
-      <div className="flex h-11 w-11 items-center justify-center rounded-[18px] bg-[color:var(--surface-strong)]">
+    <div className="mb-5 flex items-start gap-3 rounded-[24px] border border-[color:var(--line)] bg-[color:var(--surface-strong)]/70 p-4">
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] bg-white/85">
         <Icon className="h-4 w-4 text-[color:var(--foreground)]" />
       </div>
       <div>
@@ -443,10 +443,13 @@ function OpsTile({
       <p className="text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">
         {label}
       </p>
-      <p className="mt-3 truncate text-lg font-semibold text-[color:var(--foreground)]">
+      <p
+        title={value}
+        className="mt-3 break-words text-lg font-semibold text-[color:var(--foreground)]"
+      >
         {value}
       </p>
-      <p className="mt-1 text-sm text-[color:var(--muted)]">{detail}</p>
+      <p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">{detail}</p>
     </div>
   );
 }

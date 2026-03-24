@@ -15,6 +15,7 @@ import { RequestResubmitPanel } from "@/components/workspace/request-resubmit-pa
 import { getRequestDetailData } from "@/lib/workflow/engine";
 import {
   DueBadge,
+  LabeledValue,
   PageHeader,
   PillLink,
   PriorityBadge,
@@ -76,26 +77,58 @@ export default async function RequestDetailPage({
         }
       />
 
-      <div className="flex flex-wrap items-center gap-3">
-        <StatusBadge status={request.status} />
-        <PriorityBadge priority={request.priority} />
-        <DueBadge state={request.dueState} label={request.dueLabel} />
-        <span className="rounded-full border border-[color:var(--line)] bg-white/80 px-3 py-1 text-sm text-[color:var(--foreground)]">
-          Étape: {request.currentStep}
-        </span>
-      </div>
+      <SurfaceCard className="p-4">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-wrap items-center gap-3">
+            <StatusBadge status={request.status} />
+            <PriorityBadge priority={request.priority} />
+            <DueBadge state={request.dueState} label={request.dueLabel} />
+            <span className="rounded-full border border-[color:var(--line)] bg-white/80 px-3 py-1 text-sm text-[color:var(--foreground)]">
+              Étape: {request.currentStep}
+            </span>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:min-w-[26rem]">
+            <LabeledValue
+              label="Workflow"
+              value={request.templateName}
+              detail={currentApproverLabel ? `Validateur actuel: ${currentApproverLabel}` : undefined}
+            />
+            <LabeledValue
+              label="Référence dossier"
+              value={request.reference}
+              detail={request.submittedAt}
+            />
+          </div>
+        </div>
+      </SurfaceCard>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <SummaryStat label="Type" value={request.typeName} icon={FileText} />
+        <SummaryStat
+          label="Type"
+          value={request.typeName}
+          icon={FileText}
+          detail={request.department}
+        />
         <SummaryStat
           label="Demandeur"
           value={request.requester}
           valueTitle={request.requesterFullName ?? request.requester}
           valueClassName="truncate text-[2.15rem] leading-none"
           icon={Users}
+          detail={request.requesterRole}
         />
-        <SummaryStat label="Montant" value={request.amount ?? "n/a"} icon={ShieldCheck} />
-        <SummaryStat label="Pièces" value={String(request.attachments.length)} icon={Paperclip} />
+        <SummaryStat
+          label="Montant"
+          value={request.amount ?? "n/a"}
+          icon={ShieldCheck}
+          detail="Montant estimé"
+        />
+        <SummaryStat
+          label="Pièces"
+          value={String(request.attachments.length)}
+          icon={Paperclip}
+          detail="Fichiers liés"
+        />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.08fr_0.92fr]">
@@ -110,15 +143,16 @@ export default async function RequestDetailPage({
                 <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
                   Informations clés
                 </p>
-                <div className="mt-4 space-y-2 text-sm leading-6 text-[color:var(--foreground)]">
-                  <p title={request.requesterFullName ?? request.requester}>
-                    Demandeur: {request.requesterFullName ?? request.requester}
-                    {request.requesterHandle ? ` (@${request.requesterHandle})` : ""}
-                  </p>
-                  <p>Rôle: {request.requesterRole}</p>
-                  <p>Département: {request.department}</p>
-                  <p>Soumise le: {request.submittedAt}</p>
-                  <p>Workflow: {request.templateName}</p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <LabeledValue
+                    label="Demandeur"
+                    value={request.requesterFullName ?? request.requester}
+                    detail={request.requesterHandle ? `@${request.requesterHandle}` : undefined}
+                    valueTitle={request.requesterFullName ?? request.requester}
+                  />
+                  <LabeledValue label="Rôle" value={request.requesterRole} />
+                  <LabeledValue label="Département" value={request.department} />
+                  <LabeledValue label="Soumise le" value={request.submittedAt} />
                 </div>
               </div>
               <div className="rounded-[22px] border border-[color:var(--line)] bg-[color:var(--surface-strong)] p-4">
@@ -141,7 +175,7 @@ export default async function RequestDetailPage({
               {request.steps.map((step, index) => (
                 <div
                   key={step.id}
-                  className="flex gap-4 rounded-[24px] border border-[color:var(--line)] bg-white/80 p-4"
+                  className="flex gap-4 rounded-[24px] border border-[color:var(--line)] bg-white/82 p-4"
                 >
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[color:var(--brand-soft)] text-sm font-medium text-[color:var(--foreground)]">
                     {index + 1}
@@ -216,24 +250,33 @@ export default async function RequestDetailPage({
               description="Chaque décision enrichit l'historique du dossier."
             />
             <div className="space-y-3">
-              {request.comments.map((comment) => (
-                <div
-                  key={comment.id}
-                  className="rounded-[22px] border border-[color:var(--line)] bg-white/80 p-4"
-                >
-                  <div className="flex items-center justify-between gap-4">
-                    <p className="font-medium text-[color:var(--foreground)]">
-                      {comment.author} · {comment.role}
-                    </p>
-                    <span className="font-mono text-xs text-[color:var(--muted)]">
-                      {comment.createdAt}
-                    </span>
-                  </div>
-                  <p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">
-                    {comment.body}
-                  </p>
+              {request.comments.length === 0 ? (
+                <div className="rounded-[22px] border border-dashed border-[color:var(--line)] bg-white/75 p-4 text-sm leading-6 text-[color:var(--muted)]">
+                  Aucun commentaire manuel pour le moment.
                 </div>
-              ))}
+              ) : (
+                request.comments.map((comment) => (
+                  <div
+                    key={comment.id}
+                    className="rounded-[22px] border border-[color:var(--line)] bg-white/80 p-4"
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <p
+                        title={`${comment.author} · ${comment.role}`}
+                        className="truncate font-medium text-[color:var(--foreground)]"
+                      >
+                        {comment.author} · {comment.role}
+                      </p>
+                      <span className="font-mono text-xs text-[color:var(--muted)]">
+                        {comment.createdAt}
+                      </span>
+                    </div>
+                    <p className="mt-2 break-words text-sm leading-6 text-[color:var(--muted)]">
+                      {comment.body}
+                    </p>
+                  </div>
+                ))
+              )}
             </div>
           </SurfaceCard>
 
@@ -243,25 +286,33 @@ export default async function RequestDetailPage({
               description="Journal technique des décisions, transitions et actions automatiques."
             />
             <div className="space-y-3">
-              {history.map((event) => (
-                <div
-                  key={event.id}
-                  className="rounded-[22px] border border-[color:var(--line)] bg-[color:var(--surface-strong)] p-4"
-                >
-                  <div className="flex items-center justify-between gap-4">
-                    <p className="font-medium text-[color:var(--foreground)]">
-                      {event.action}
-                    </p>
-                    <span className="font-mono text-xs text-[color:var(--muted)]">
-                      {event.at}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-sm text-[color:var(--muted)]">{event.actor}</p>
-                  <p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">
-                    {event.detail}
-                  </p>
+              {history.length === 0 ? (
+                <div className="rounded-[22px] border border-dashed border-[color:var(--line)] bg-white/75 p-4 text-sm leading-6 text-[color:var(--muted)]">
+                  Aucun événement d’audit supplémentaire à afficher.
                 </div>
-              ))}
+              ) : (
+                history.map((event) => (
+                  <div
+                    key={event.id}
+                    className="rounded-[22px] border border-[color:var(--line)] bg-[color:var(--surface-strong)] p-4"
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <p className="font-medium text-[color:var(--foreground)]">
+                        {event.action}
+                      </p>
+                      <span className="font-mono text-xs text-[color:var(--muted)]">
+                        {event.at}
+                      </span>
+                    </div>
+                    <p className="mt-1 truncate text-sm text-[color:var(--muted)]">
+                      {event.actor}
+                    </p>
+                    <p className="mt-2 break-words text-sm leading-6 text-[color:var(--muted)]">
+                      {event.detail}
+                    </p>
+                  </div>
+                ))
+              )}
             </div>
           </SurfaceCard>
 
@@ -302,7 +353,7 @@ export default async function RequestDetailPage({
           </SurfaceCard>
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-6 self-start xl:sticky xl:top-6">
           <RequestDecisionPanel
             requestReference={request.reference}
             canAct={canAct}
@@ -322,7 +373,8 @@ export default async function RequestDetailPage({
               {request.participants.map((participant) => (
                 <span
                   key={participant}
-                  className="rounded-full border border-[color:var(--line)] bg-white/80 px-3 py-2 text-sm text-[color:var(--foreground)]"
+                  title={participant}
+                  className="max-w-full truncate rounded-full border border-[color:var(--line)] bg-white/80 px-3 py-2 text-sm text-[color:var(--foreground)]"
                 >
                   {participant}
                 </span>
@@ -352,40 +404,46 @@ export default async function RequestDetailPage({
               }
             />
             <div className="space-y-3">
-              {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`rounded-[22px] p-4 ${
-                    message.kind === "system"
-                      ? "border border-[color:var(--line)] bg-[color:var(--surface-strong)]"
-                      : message.isOwn
-                        ? "bg-[color:var(--foreground)] text-[color:var(--surface-strong)]"
-                        : "border border-[color:var(--line)] bg-white/80"
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-4">
-                    <p className="font-medium">{message.author}</p>
-                    <span
-                      className={`font-mono text-xs ${
+              {messages.length === 0 ? (
+                <div className="rounded-[22px] border border-dashed border-[color:var(--line)] bg-white/75 p-4 text-sm leading-6 text-[color:var(--muted)]">
+                  Aucun message encore lié à ce dossier.
+                </div>
+              ) : (
+                messages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={`rounded-[22px] p-4 ${
+                      message.kind === "system"
+                        ? "border border-[color:var(--line)] bg-[color:var(--surface-strong)]"
+                        : message.isOwn
+                          ? "bg-[color:var(--foreground)] text-[color:var(--surface-strong)]"
+                          : "border border-[color:var(--line)] bg-white/80"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <p className="font-medium">{message.author}</p>
+                      <span
+                        className={`font-mono text-xs ${
+                          message.isOwn && message.kind !== "system"
+                            ? "text-white/65"
+                            : "text-[color:var(--muted)]"
+                        }`}
+                      >
+                        {message.createdAt}
+                      </span>
+                    </div>
+                    <p
+                      className={`mt-2 break-words text-sm leading-6 ${
                         message.isOwn && message.kind !== "system"
-                          ? "text-white/65"
+                          ? "text-white/85"
                           : "text-[color:var(--muted)]"
                       }`}
                     >
-                      {message.createdAt}
-                    </span>
+                      {message.body}
+                    </p>
                   </div>
-                  <p
-                    className={`mt-2 text-sm leading-6 ${
-                      message.isOwn && message.kind !== "system"
-                        ? "text-white/85"
-                        : "text-[color:var(--muted)]"
-                    }`}
-                  >
-                    {message.body}
-                  </p>
-                </div>
-              ))}
+                ))
+              )}
             </div>
             <Link
               href={
@@ -405,15 +463,27 @@ export default async function RequestDetailPage({
               title="Trace d'exécution"
               description="Ce bloc te permet de voir immédiatement si le moteur est bien branché."
             />
-            <div className="rounded-[22px] border border-[color:var(--line)] bg-white/80 p-4">
-              <div className="flex items-center gap-2 text-sm font-medium text-[color:var(--foreground)]">
-                <History className="h-4 w-4" />
-                Workflow live + historique versionné
+            <div className="grid gap-3">
+              <div className="rounded-[22px] border border-[color:var(--line)] bg-white/80 p-4">
+                <div className="flex items-center gap-2 text-sm font-medium text-[color:var(--foreground)]">
+                  <History className="h-4 w-4" />
+                  Workflow live + historique versionné
+                </div>
+                <p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">
+                  Les décisions écrivent désormais dans les étapes d’instance, les commentaires,
+                  le journal d’audit et les notifications serveur.
+                </p>
               </div>
-              <p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">
-                Les décisions écrivent désormais dans les étapes d’instance, les commentaires,
-                le journal d’audit et les notifications serveur.
-              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <LabeledValue
+                  label="Mode runtime"
+                  value={actor.mode === "live" ? "Supabase live" : "Démo locale"}
+                />
+                <LabeledValue
+                  label="Canal dossier"
+                  value={conversation ? "Messagerie liée active" : "Aucun canal lié"}
+                />
+              </div>
             </div>
           </SurfaceCard>
         </div>

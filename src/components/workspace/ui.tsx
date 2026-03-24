@@ -19,20 +19,23 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-      <div className="max-w-3xl">
-        <p className="text-xs uppercase tracking-[0.24em] text-[color:var(--muted)]">
-          {eyebrow}
-        </p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-[color:var(--foreground)] sm:text-4xl">
+    <section className="relative overflow-hidden rounded-[34px] border border-[color:var(--line)] bg-[linear-gradient(135deg,rgba(255,255,255,0.92),rgba(255,247,235,0.88))] px-6 py-6 shadow-[var(--shadow-soft)]">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-[radial-gradient(circle_at_top_left,rgba(15,143,113,0.14),transparent_48%)]" />
+      <div className="relative flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+        <div className="max-w-3xl">
+          <span className="inline-flex items-center rounded-full border border-[color:var(--line)] bg-white/75 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--muted)]">
+            {eyebrow}
+          </span>
+          <h1 className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-[color:var(--foreground)] sm:text-4xl">
           {title}
-        </h1>
-        <p className="mt-3 text-base leading-7 text-[color:var(--muted)]">
-          {description}
-        </p>
+          </h1>
+          <p className="mt-4 max-w-2xl text-base leading-7 text-[color:var(--muted)]">
+            {description}
+          </p>
+        </div>
+        {actions ? <div className="relative flex flex-wrap gap-3 xl:justify-end">{actions}</div> : null}
       </div>
-      {actions ? <div className="flex flex-wrap gap-3">{actions}</div> : null}
-    </div>
+    </section>
   );
 }
 
@@ -45,7 +48,7 @@ export function SurfaceCard({
 }) {
   return (
     <section
-      className={`rounded-[28px] border border-[color:var(--line)] bg-[color:var(--surface)] p-5 shadow-[0_12px_40px_rgba(19,33,31,0.06)] ${className}`}
+      className={`rounded-[28px] border border-[color:var(--line)] bg-[linear-gradient(180deg,rgba(255,251,244,0.92),rgba(255,255,255,0.78))] p-5 shadow-[0_12px_40px_rgba(19,33,31,0.06)] backdrop-blur-sm ${className}`}
     >
       {children}
     </section>
@@ -78,7 +81,7 @@ export function SectionTitle({
       {actionHref && actionLabel ? (
         <Link
           href={actionHref}
-          className="inline-flex items-center gap-2 text-sm font-medium text-[color:var(--foreground)]"
+          className="inline-flex items-center gap-2 rounded-full border border-[color:var(--line)] bg-white/80 px-4 py-2 text-sm font-medium text-[color:var(--foreground)]"
         >
           {actionLabel}
           <ArrowRight className="h-4 w-4" />
@@ -166,23 +169,34 @@ export function SummaryStat({
   value,
   icon: Icon,
   valueTitle,
+  detail,
   valueClassName = "",
 }: {
   label: string;
   value: string;
   icon: LucideIcon;
   valueTitle?: string;
+  detail?: string;
   valueClassName?: string;
 }) {
   return (
-    <div className="min-w-0 rounded-[24px] border border-[color:var(--line)] bg-white/80 p-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-[color:var(--muted)]">{label}</p>
-        <Icon className="h-4 w-4 text-[color:var(--muted)]" />
+    <div className="min-w-0 rounded-[24px] border border-[color:var(--line)] bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(255,247,235,0.76))] p-4 shadow-[0_8px_26px_rgba(19,33,31,0.04)]">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm text-[color:var(--muted)]">{label}</p>
+          {detail ? (
+            <p className="mt-1 text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">
+              {detail}
+            </p>
+          ) : null}
+        </div>
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[color:var(--line)] bg-white/80">
+          <Icon className="h-4 w-4 text-[color:var(--muted)]" />
+        </div>
       </div>
       <p
         title={valueTitle}
-        className={`mt-3 min-w-0 overflow-hidden text-3xl font-semibold tracking-[-0.04em] text-[color:var(--foreground)] text-ellipsis whitespace-nowrap ${valueClassName}`}
+        className={`mt-4 min-w-0 overflow-hidden text-3xl font-semibold tracking-[-0.04em] text-[color:var(--foreground)] text-ellipsis whitespace-nowrap ${valueClassName}`}
       >
         {value}
       </p>
@@ -202,13 +216,42 @@ export function PillLink({
   return (
     <Link
       href={href}
-      className={`inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-medium ${
+      className={`inline-flex items-center justify-center rounded-full px-4 py-2.5 text-sm font-medium shadow-[0_8px_24px_rgba(19,33,31,0.06)] ${
         tone === "primary"
           ? "bg-[color:var(--foreground)] text-[color:var(--surface-strong)]"
-          : "border border-[color:var(--line)] bg-white/80 text-[color:var(--foreground)]"
+          : "border border-[color:var(--line)] bg-white/88 text-[color:var(--foreground)]"
       }`}
     >
       {label}
     </Link>
+  );
+}
+
+export function LabeledValue({
+  label,
+  value,
+  detail,
+  valueTitle,
+}: {
+  label: string;
+  value: string;
+  detail?: string;
+  valueTitle?: string;
+}) {
+  return (
+    <div className="rounded-[22px] border border-[color:var(--line)] bg-white/78 p-4">
+      <p className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--muted)]">
+        {label}
+      </p>
+      <p
+        title={valueTitle}
+        className="mt-3 break-words text-sm font-medium leading-6 text-[color:var(--foreground)]"
+      >
+        {value}
+      </p>
+      {detail ? (
+        <p className="mt-1 text-sm leading-6 text-[color:var(--muted)]">{detail}</p>
+      ) : null}
+    </div>
   );
 }

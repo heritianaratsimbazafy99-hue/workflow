@@ -67,6 +67,7 @@ export function MessagesWorkspace({
   const [composer, setComposer] = useState("");
   const [search, setSearch] = useState("");
   const [sendEmail, setSendEmail] = useState(false);
+  const [composerFeedback, setComposerFeedback] = useState<string | null>(null);
   const deferredSearch = useDeferredValue(search);
   const [isPending, startTransition] = useTransition();
 
@@ -75,6 +76,13 @@ export function MessagesWorkspace({
     conversations[0];
   const activeConversationKey = activeConversation?.id ?? null;
   const messages = messagesByConversation[activeConversation?.id ?? ""] ?? [];
+  const totalUnreadCount = conversations.reduce(
+    (total, conversation) => total + conversation.unreadCount,
+    0,
+  );
+  const participantCount = new Set(
+    conversations.flatMap((conversation) => conversation.participants),
+  ).size;
 
   const filteredConversations = useMemo(() => {
     const needle = deferredSearch.trim().toLowerCase();
@@ -264,6 +272,7 @@ export function MessagesWorkspace({
   function switchConversation(nextConversationId: string) {
     startTransition(() => {
       setActiveConversationId(nextConversationId);
+      setComposerFeedback(null);
       setConversations((current) =>
         current.map((conversation) =>
           conversation.id === nextConversationId
@@ -285,6 +294,7 @@ export function MessagesWorkspace({
       return;
     }
 
+    setComposerFeedback(null);
     const optimisticId = `temp-${crypto.randomUUID()}`;
     const optimisticMessage: ConversationMessage = {
       id: optimisticId,
@@ -335,6 +345,7 @@ export function MessagesWorkspace({
       if (!response.ok) {
         removeMessage(conversationId, optimisticId, setMessagesByConversation);
         setComposer(body);
+        setComposerFeedback("Message non envoyé. Vérifie la connexion puis réessaie.");
         return;
       }
 
@@ -350,6 +361,7 @@ export function MessagesWorkspace({
         setRuntimeActorId(data.actor.id);
       }
       setRuntimeMode(data.mode);
+      setComposerFeedback(null);
 
       if (data.item) {
         replaceMessage(
@@ -363,6 +375,7 @@ export function MessagesWorkspace({
     } catch {
       removeMessage(conversationId, optimisticId, setMessagesByConversation);
       setComposer(body);
+      setComposerFeedback("Message non envoyé. Vérifie la connexion puis réessaie.");
     }
   }
 
@@ -436,79 +449,79 @@ export function MessagesWorkspace({
             <StatTile
               icon={Users}
               label="Participants"
-              value={String(
-                new Set(conversations.flatMap((conversation) => conversation.participants))
-                  .size,
-              )}
+              value={String(participantCount)}
               detail="internes"
             />
             <StatTile
               icon={ShieldCheck}
               label="Non lus"
-              value={String(
-                conversations.reduce(
-                  (total, conversation) => total + conversation.unreadCount,
-                  0,
-                ),
-              )}
+              value={String(totalUnreadCount)}
               detail="à absorber"
             />
           </div>
         </div>
 
-        <div className="space-y-3">
-          {filteredConversations.map((conversation) => {
-            const isActive = conversation.id === activeConversation.id;
+        {filteredConversations.length === 0 ? (
+          <div className="rounded-[24px] border border-dashed border-[color:var(--line)] bg-white/76 p-5 text-sm leading-6 text-[color:var(--muted)]">
+            Aucun canal ne correspond à la recherche en cours.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filteredConversations.map((conversation) => {
+              const isActive = conversation.id === activeConversation.id;
 
-            return (
-              <button
-                key={conversation.id}
-                type="button"
-                onClick={() => switchConversation(conversation.id)}
-                className={`w-full rounded-[28px] border p-4 text-left shadow-[0_12px_34px_rgba(19,33,31,0.06)] ${
-                  isActive
-                    ? "border-[color:var(--foreground)] bg-[color:var(--foreground)] text-[color:var(--surface-strong)]"
-                    : "border-[color:var(--line)] bg-white/80 text-[color:var(--foreground)]"
-                }`}
-              >
-                <div className="flex items-center justify-between gap-4">
-                  <p className="text-base font-medium">{conversation.title}</p>
-                  <span
-                    className={`rounded-full px-2 py-1 text-xs ${
-                      isActive
-                        ? "bg-white/10 text-white/75"
-                        : "bg-[color:var(--surface-strong)] text-[color:var(--muted)]"
+              return (
+                <button
+                  key={conversation.id}
+                  type="button"
+                  onClick={() => switchConversation(conversation.id)}
+                  className={`w-full rounded-[28px] border p-4 text-left shadow-[0_12px_34px_rgba(19,33,31,0.06)] ${
+                    isActive
+                      ? "border-[color:var(--foreground)] bg-[color:var(--foreground)] text-[color:var(--surface-strong)]"
+                      : "border-[color:var(--line)] bg-white/80 text-[color:var(--foreground)]"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-4">
+                    <p title={conversation.title} className="line-clamp-2 text-base font-medium">
+                      {conversation.title}
+                    </p>
+                    <span
+                      className={`rounded-full px-2 py-1 text-xs ${
+                        isActive
+                          ? "bg-white/10 text-white/75"
+                          : "bg-[color:var(--surface-strong)] text-[color:var(--muted)]"
+                      }`}
+                    >
+                      {conversation.unreadCount === 0 ? "Lu" : conversation.unreadCount}
+                    </span>
+                  </div>
+                  <p
+                    className={`mt-2 line-clamp-2 text-sm leading-6 ${
+                      isActive ? "text-white/72" : "text-[color:var(--muted)]"
                     }`}
                   >
-                    {conversation.unreadCount}
-                  </span>
-                </div>
-                <p
-                  className={`mt-2 text-sm leading-6 ${
-                    isActive ? "text-white/72" : "text-[color:var(--muted)]"
-                  }`}
-                >
-                  {conversation.context}
-                </p>
-                <p
-                  className={`mt-4 text-sm ${
-                    isActive ? "text-white/88" : "text-[color:var(--foreground)]"
-                  }`}
-                >
-                  {conversation.lastMessage}
-                </p>
-                <div
-                  className={`mt-3 flex items-center justify-between gap-4 text-xs uppercase tracking-[0.16em] ${
-                    isActive ? "text-white/55" : "text-[color:var(--muted)]"
-                  }`}
-                >
-                  <span>{conversation.lastAt}</span>
-                  <span>{conversation.tone}</span>
-                </div>
-              </button>
-            );
-          })}
-        </div>
+                    {conversation.context}
+                  </p>
+                  <p
+                    className={`mt-4 line-clamp-2 text-sm ${
+                      isActive ? "text-white/88" : "text-[color:var(--foreground)]"
+                    }`}
+                  >
+                    {conversation.lastMessage}
+                  </p>
+                  <div
+                    className={`mt-3 flex items-center justify-between gap-4 text-xs uppercase tracking-[0.16em] ${
+                      isActive ? "text-white/55" : "text-[color:var(--muted)]"
+                    }`}
+                  >
+                    <span>{conversation.lastAt}</span>
+                    <span>{conversation.tone}</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </aside>
 
       <section className="flex min-h-[760px] flex-col rounded-[32px] border border-[color:var(--line)] bg-[color:var(--surface)] shadow-[0_18px_50px_rgba(19,33,31,0.08)]">
@@ -529,6 +542,9 @@ export function MessagesWorkspace({
               title={activeConversation.participants.join(" · ")}
               className="rounded-[24px] border border-[color:var(--line)] bg-white/80 px-4 py-3 text-sm text-[color:var(--muted)]"
             >
+              <p className="mb-1 text-[11px] uppercase tracking-[0.16em] text-[color:var(--muted)]">
+                {activeConversation.participants.length} participant(s)
+              </p>
               <p className="max-w-full truncate">
                 {activeConversation.participants.join(" · ")}
               </p>
@@ -604,7 +620,7 @@ export function MessagesWorkspace({
                 </span>
               </div>
               <p
-                className={`mt-2 text-sm leading-7 ${
+                className={`mt-2 break-words text-sm leading-7 ${
                   message.isOwn && message.kind !== "system"
                     ? "text-white/88"
                     : "text-[color:var(--muted)]"
@@ -670,6 +686,11 @@ export function MessagesWorkspace({
                 {isPending ? "Envoi..." : "Envoyer"}
               </button>
             </div>
+            {composerFeedback ? (
+              <div className="mt-4 rounded-[18px] border border-[#f3b7a8] bg-[#fff1ed] px-4 py-3 text-sm text-[#8f3c25]">
+                {composerFeedback}
+              </div>
+            ) : null}
           </div>
         </form>
       </section>

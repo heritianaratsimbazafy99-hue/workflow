@@ -9,6 +9,7 @@ import {
 import { automationRules } from "@/lib/workflow/mock-data";
 import {
   DueBadge,
+  LabeledValue,
   PageHeader,
   PillLink,
   PriorityBadge,
@@ -46,6 +47,7 @@ export default async function WorkspaceDashboardPage() {
               label={`${metric.label} · ${metric.trend}`}
               value={metric.value}
               icon={Icon}
+              detail="Vue instantanée"
             />
           );
         })}
@@ -70,10 +72,10 @@ export default async function WorkspaceDashboardPage() {
                 <Link
                   key={item.id}
                   href={`/requests/${item.id}`}
-                  className="block rounded-[22px] border border-[color:var(--line)] bg-white/80 p-4"
+                  className="group block rounded-[24px] border border-[color:var(--line)] bg-white/82 p-5 shadow-[0_10px_28px_rgba(19,33,31,0.04)]"
                 >
                   <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                    <div className="space-y-3">
+                    <div className="min-w-0 space-y-4">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-mono text-xs text-[color:var(--muted)]">
                           {item.id}
@@ -82,13 +84,22 @@ export default async function WorkspaceDashboardPage() {
                         <PriorityBadge priority={item.priority} />
                       </div>
                       <div>
-                        <p className="text-lg font-medium text-[color:var(--foreground)]">
+                        <p
+                          title={item.title}
+                          className="line-clamp-2 text-lg font-medium text-[color:var(--foreground)]"
+                        >
                           {item.title}
                         </p>
                         <p className="mt-1 text-sm text-[color:var(--muted)]">
-                          {item.typeName} · {item.department} · {item.requester}
+                          {item.typeName} · {item.department} ·{" "}
+                          <span title={item.requester}>{item.requester}</span>
                           {item.amount ? ` · ${item.amount}` : ""}
                         </p>
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <LabeledValue label="Demandeur" value={item.requester} />
+                        <LabeledValue label="Type" value={item.typeName} />
+                        <LabeledValue label="Étape active" value={item.currentStep} />
                       </div>
                     </div>
 
@@ -96,6 +107,9 @@ export default async function WorkspaceDashboardPage() {
                       <DueBadge state={item.dueState} label={item.dueLabel} />
                       <span className="text-sm text-[color:var(--muted)]">
                         Étape: {item.currentStep}
+                      </span>
+                      <span className="text-sm font-medium text-[color:var(--foreground)]">
+                        Ouvrir le dossier
                       </span>
                     </div>
                   </div>
@@ -110,27 +124,34 @@ export default async function WorkspaceDashboardPage() {
             title="Alertes moteur"
             description="Ce qui mérite ton attention immédiate côté SLA, charge et blocages."
           />
-          <div className="space-y-3">
-            {dashboard.alerts.map((alert) => (
-              <div
-                key={alert.id}
-                className={`rounded-[22px] border p-4 ${
-                  alert.tone === "critical"
-                    ? "border-[#f3b7a8] bg-[#fff1ed]"
-                    : alert.tone === "warning"
-                      ? "border-[#eadcb7] bg-[#fff8e7]"
-                      : "border-[#bfe2d6] bg-[#eefaf5]"
-                }`}
-              >
-                <p className="text-base font-medium text-[color:var(--foreground)]">
-                  {alert.title}
-                </p>
-                <p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">
-                  {alert.detail}
-                </p>
-              </div>
-            ))}
-          </div>
+          {dashboard.alerts.length === 0 ? (
+            <div className="rounded-[22px] border border-dashed border-[color:var(--line)] bg-white/75 p-5 text-sm leading-6 text-[color:var(--muted)]">
+              Aucun signal urgent. Le moteur ne remonte actuellement ni SLA en retard
+              ni surcharge approbateur notable.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {dashboard.alerts.map((alert) => (
+                <div
+                  key={alert.id}
+                  className={`rounded-[22px] border p-4 ${
+                    alert.tone === "critical"
+                      ? "border-[#f3b7a8] bg-[#fff1ed]"
+                      : alert.tone === "warning"
+                        ? "border-[#eadcb7] bg-[#fff8e7]"
+                        : "border-[#bfe2d6] bg-[#eefaf5]"
+                  }`}
+                >
+                  <p className="text-base font-medium text-[color:var(--foreground)]">
+                    {alert.title}
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">
+                    {alert.detail}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="mt-6 rounded-[24px] border border-[color:var(--line)] bg-white/80 p-4">
             <p className="text-xs uppercase tracking-[0.22em] text-[color:var(--muted)]">
@@ -148,7 +169,10 @@ export default async function WorkspaceDashboardPage() {
                     className="flex items-center justify-between gap-3 rounded-2xl border border-[color:var(--line)] bg-[color:var(--surface)] px-4 py-3"
                   >
                     <div>
-                      <p className="font-medium text-[color:var(--foreground)]">
+                      <p
+                        title={`${event.actor} · ${event.action}`}
+                        className="line-clamp-2 font-medium text-[color:var(--foreground)]"
+                      >
                         {event.actor} · {event.action}
                       </p>
                       <p className="text-sm text-[color:var(--muted)]">{event.detail}</p>
@@ -176,17 +200,20 @@ export default async function WorkspaceDashboardPage() {
             {dashboard.requestTypes.map((requestType) => (
               <div
                 key={requestType.id}
-                className="rounded-[22px] border border-[color:var(--line)] bg-white/80 p-4"
+                className="rounded-[22px] border border-[color:var(--line)] bg-white/82 p-4"
               >
                 <div className="flex items-center justify-between gap-4">
-                  <p className="text-lg font-medium text-[color:var(--foreground)]">
+                  <p
+                    title={requestType.name}
+                    className="line-clamp-2 text-lg font-medium text-[color:var(--foreground)]"
+                  >
                     {requestType.name}
                   </p>
                   <span className="rounded-full bg-[color:var(--surface-strong)] px-3 py-1 text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">
                     {requestType.department}
                   </span>
                 </div>
-                <p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">
+                <p className="mt-2 line-clamp-3 text-sm leading-6 text-[color:var(--muted)]">
                   {requestType.description}
                 </p>
                 <p className="mt-3 font-mono text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">
@@ -210,7 +237,10 @@ export default async function WorkspaceDashboardPage() {
                   className="rounded-[22px] border border-[color:var(--line)] bg-white/80 p-4"
                 >
                   <div className="flex items-center justify-between gap-4">
-                    <p className="font-medium text-[color:var(--foreground)]">
+                    <p
+                      title={rule.name}
+                      className="line-clamp-2 font-medium text-[color:var(--foreground)]"
+                    >
                       {rule.name}
                     </p>
                     <span
@@ -240,7 +270,10 @@ export default async function WorkspaceDashboardPage() {
                   className="rounded-[22px] border border-[color:var(--line)] bg-[color:var(--surface-strong)] p-4"
                 >
                   <div className="flex items-center justify-between gap-4">
-                    <p className="font-medium text-[color:var(--foreground)]">
+                    <p
+                      title={`${event.actor} · ${event.action}`}
+                      className="line-clamp-2 font-medium text-[color:var(--foreground)]"
+                    >
                       {event.actor} · {event.action}
                     </p>
                     <span className="font-mono text-xs text-[color:var(--muted)]">

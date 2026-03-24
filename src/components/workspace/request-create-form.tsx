@@ -49,6 +49,7 @@ export function RequestCreateForm({
   const [dynamicFields, setDynamicFields] = useState<Record<string, string | boolean>>({});
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [feedbackTone, setFeedbackTone] = useState<"success" | "error">("success");
   const [isPending, startTransition] = useTransition();
 
   const filteredTemplates = useMemo(
@@ -89,6 +90,7 @@ export function RequestCreateForm({
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFeedback(null);
+    setFeedbackTone("success");
 
     startTransition(() => {
       void submitForm();
@@ -121,6 +123,7 @@ export function RequestCreateForm({
       };
 
       if (!response.ok) {
+        setFeedbackTone("error");
         setFeedback(data.error ?? "Impossible de créer la demande.");
         return;
       }
@@ -144,6 +147,7 @@ export function RequestCreateForm({
           "Mode démo actif. La vraie persistance démarre dès que Supabase Auth est branché.",
       );
     } catch {
+      setFeedbackTone("error");
       setFeedback("Erreur réseau pendant la création de la demande.");
     }
   }
@@ -167,6 +171,27 @@ export function RequestCreateForm({
         </div>
 
         <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <div className="md:col-span-2 grid gap-3 lg:grid-cols-3">
+            <MiniMetaTile
+              label="Type choisi"
+              value={selectedRequestType?.name ?? "Aucun"}
+              detail={selectedRequestType?.department}
+            />
+            <MiniMetaTile
+              label="Workflow"
+              value={selectedTemplate?.name ?? "Aucun"}
+              detail={selectedTemplate?.coverage ?? "À sélectionner"}
+            />
+            <MiniMetaTile
+              label="Sections métier"
+              value={String(activeFormSections.length)}
+              detail={`${activeFormSections.reduce(
+                (total, section) => total + section.fields.length,
+                0,
+              )} champ(s) dynamiques`}
+            />
+          </div>
+
           <Field label="Type de demande">
             <select
               value={requestTypeCode}
@@ -254,6 +279,17 @@ export function RequestCreateForm({
                     {selectedFiles.length} fichier(s) seront transféré(s) juste après la création
                     du dossier.
                   </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {selectedFiles.map((file) => (
+                      <span
+                        key={`${file.name}-${file.size}`}
+                        title={file.name}
+                        className="max-w-full truncate rounded-full border border-[color:var(--line)] bg-[color:var(--surface-strong)] px-3 py-1 text-xs"
+                      >
+                        {file.name}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               ) : (
                 <p className="mt-3 text-sm leading-6 text-[color:var(--muted)]">
@@ -312,37 +348,67 @@ export function RequestCreateForm({
               {selectedTemplate?.summary ??
                 "Sélectionne un type de demande pour voir le workflow appliqué."}
             </p>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <MiniMetaTile
+                label="Couverture"
+                value={selectedTemplate?.coverage ?? "n/a"}
+                detail={selectedRequestType?.name ?? undefined}
+              />
+              <MiniMetaTile
+                label="Étapes"
+                value={String(selectedTemplate?.steps.length ?? 0)}
+                detail="Validation du workflow"
+              />
+            </div>
             <div className="mt-4 space-y-3">
-              {selectedTemplate?.steps.map((step, index) => (
-                <div
-                  key={step.id}
-                  className="flex gap-3 rounded-[22px] border border-[color:var(--line)] bg-white/80 p-4"
-                >
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[color:var(--brand-soft)] text-sm font-medium">
-                    {index + 1}
+              {selectedTemplate?.steps.length ? (
+                selectedTemplate.steps.map((step, index) => (
+                  <div
+                    key={step.id}
+                    className="flex gap-3 rounded-[22px] border border-[color:var(--line)] bg-white/80 p-4"
+                  >
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[color:var(--brand-soft)] text-sm font-medium">
+                      {index + 1}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium text-[color:var(--foreground)]">{step.name}</p>
+                      <p className="mt-1 break-words text-sm text-[color:var(--muted)]">
+                        {step.assigneeLabel} · {step.rule} · SLA {step.slaHours} h
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium text-[color:var(--foreground)]">{step.name}</p>
-                    <p className="mt-1 text-sm text-[color:var(--muted)]">
-                      {step.assigneeLabel} · {step.rule} · SLA {step.slaHours} h
-                    </p>
-                  </div>
+                ))
+              ) : (
+                <div className="rounded-[22px] border border-dashed border-[color:var(--line)] bg-white/75 p-4 text-sm leading-6 text-[color:var(--muted)]">
+                  Aucun workflow détaillé n’est encore rattaché à ce type.
                 </div>
-              ))}
+              )}
             </div>
           </div>
         </div>
       </div>
 
       {feedback ? (
-        <div className="rounded-[22px] border border-[color:var(--line)] bg-white/80 px-4 py-3 text-sm text-[color:var(--foreground)]">
+        <div
+          className={`rounded-[22px] border px-4 py-3 text-sm ${
+            feedbackTone === "error"
+              ? "border-[#f3b7a8] bg-[#fff1ed] text-[#8f3c25]"
+              : "border-[#bfe2d6] bg-[#eefaf5] text-[#35513f]"
+          }`}
+        >
           {feedback}
         </div>
       ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="rounded-full border border-[color:var(--line)] bg-white/80 px-4 py-2 text-sm text-[color:var(--muted)]">
-          Runtime {mode === "live" ? "Supabase live" : "Démo locale"}
+        <div className="space-y-2">
+          <div className="rounded-full border border-[color:var(--line)] bg-white/80 px-4 py-2 text-sm text-[color:var(--muted)]">
+            Runtime {mode === "live" ? "Supabase live" : "Démo locale"}
+          </div>
+          <p className="text-sm text-[color:var(--muted)]">
+            Après soumission, le moteur ouvre le dossier, instancie les étapes et notifie le
+            premier approbateur.
+          </p>
         </div>
         <button
           type="submit"
@@ -451,5 +517,29 @@ function Field({
       </span>
       {children}
     </label>
+  );
+}
+
+function MiniMetaTile({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string;
+  detail?: string;
+}) {
+  return (
+    <div className="rounded-[20px] border border-[color:var(--line)] bg-white/82 p-4">
+      <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--muted)]">
+        {label}
+      </p>
+      <p className="mt-3 break-words text-sm font-medium text-[color:var(--foreground)]">
+        {value}
+      </p>
+      {detail ? (
+        <p className="mt-1 text-sm leading-6 text-[color:var(--muted)]">{detail}</p>
+      ) : null}
+    </div>
   );
 }

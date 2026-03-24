@@ -19,6 +19,7 @@ export function NotificationsCenter({
   const [items, setItems] = useState(initialItems);
   const [preference, setPreference] = useState(initialPreference);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [feedbackTone, setFeedbackTone] = useState<"success" | "error">("success");
   const [isPending, startTransition] = useTransition();
 
   const unreadIds = items.filter((item) => !item.isRead).map((item) => item.id);
@@ -111,10 +112,12 @@ export function NotificationsCenter({
         });
 
         if (!response.ok) {
+          setFeedbackTone("error");
           setFeedback("Impossible de sauvegarder les préférences.");
           return;
         }
 
+        setFeedbackTone("success");
         setFeedback("Préférences enregistrées.");
         router.refresh();
       })();
@@ -150,7 +153,7 @@ export function NotificationsCenter({
 
   return (
     <div className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
-      <section className="space-y-6">
+      <section className="space-y-6 self-start xl:sticky xl:top-6">
         <NotificationPanel
           title="Canaux"
           icon={BellRing}
@@ -247,7 +250,13 @@ export function NotificationsCenter({
         </NotificationPanel>
 
         {feedback ? (
-          <div className="rounded-[22px] border border-[color:var(--line)] bg-white/80 px-4 py-3 text-sm text-[color:var(--foreground)]">
+          <div
+            className={`rounded-[22px] border px-4 py-3 text-sm ${
+              feedbackTone === "error"
+                ? "border-[#f3b7a8] bg-[#fff1ed] text-[#8f3c25]"
+                : "border-[#bfe2d6] bg-[#eefaf5] text-[#35513f]"
+            }`}
+          >
             {feedback}
           </div>
         ) : null}
@@ -262,6 +271,9 @@ export function NotificationsCenter({
             <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[color:var(--foreground)]">
               Centre de notifications
             </h2>
+            <p className="mt-2 text-sm text-[color:var(--muted)]">
+              {unreadIds.length} non lue(s) sur {items.length}
+            </p>
           </div>
           <button
             type="button"
@@ -290,23 +302,37 @@ export function NotificationsCenter({
                 }`}
               >
                 <div className="flex items-center justify-between gap-4">
-                  <p className="font-medium text-[color:var(--foreground)]">{item.title}</p>
+                  <div className="flex min-w-0 items-center gap-3">
+                    {!item.isRead ? (
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[color:var(--brand)]" />
+                    ) : null}
+                    <p
+                      title={item.title}
+                      className="line-clamp-2 font-medium text-[color:var(--foreground)]"
+                    >
+                      {item.title}
+                    </p>
+                  </div>
                   <span className="font-mono text-xs text-[color:var(--muted)]">
                     {item.createdAt}
                   </span>
                 </div>
-                <p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">
+                <p className="mt-2 break-words text-sm leading-6 text-[color:var(--muted)]">
                   {item.body}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2 text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">
-                  <span>{item.channel === "email" ? "Email" : "In-app"}</span>
-                  <span>· {labelForNotificationCategory(item.category)}</span>
+                  <span className="rounded-full border border-[color:var(--line)] bg-white/80 px-2 py-1">
+                    {item.channel === "email" ? "Email" : "In-app"}
+                  </span>
+                  <span className="rounded-full border border-[color:var(--line)] bg-white/80 px-2 py-1">
+                    {labelForNotificationCategory(item.category)}
+                  </span>
                   {item.requestReference ? (
                     <Link
                       href={`/requests/${item.requestReference}`}
-                      className="font-medium text-[color:var(--foreground)]"
+                      className="rounded-full border border-[color:var(--line)] bg-white/80 px-2 py-1 font-medium text-[color:var(--foreground)]"
                     >
-                      · {item.requestReference}
+                      {item.requestReference}
                     </Link>
                   ) : null}
                 </div>
