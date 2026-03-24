@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useEffectEvent, useMemo, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { BellRing, CheckCheck, RadioTower } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { hasPublicSupabaseEnv } from "@/lib/supabase/config";
@@ -22,6 +22,8 @@ export function RealtimeNotifications({
   const [unreadCount, setUnreadCount] = useState(
     initialItems.filter((item) => !item.isRead).length,
   );
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
 
   const hasUnreadItems = useMemo(() => unreadCount > 0, [unreadCount]);
 
@@ -56,6 +58,40 @@ export function RealtimeNotifications({
   useEffect(() => {
     void loadInbox();
   }, [initialItems]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target;
+
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      if (panelRef.current?.contains(target) || triggerRef.current?.contains(target)) {
+        return;
+      }
+
+      setIsOpen(false);
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+      }
+    }
+
+    window.addEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     if (!hasPublicSupabaseEnv()) {
@@ -148,8 +184,11 @@ export function RealtimeNotifications({
   return (
     <div className="relative">
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setIsOpen((current) => !current)}
+        aria-expanded={isOpen}
+        aria-haspopup="dialog"
         className="relative inline-flex h-12 items-center gap-3 rounded-[20px] border border-[color:var(--line)] bg-white/85 px-4 text-sm font-medium text-[color:var(--foreground)] shadow-[0_8px_24px_rgba(19,33,31,0.08)]"
       >
         <BellRing className="h-4 w-4" />
@@ -160,52 +199,65 @@ export function RealtimeNotifications({
       </button>
 
       {isOpen ? (
-        <div className="absolute right-0 z-30 mt-3 w-[360px] rounded-[28px] border border-[color:var(--line)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow)] backdrop-blur">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-xs uppercase tracking-[0.22em] text-[color:var(--muted)]">
-                Centre live
-              </p>
-              <p className="mt-2 text-lg font-semibold tracking-[-0.03em] text-[color:var(--foreground)]">
-                Flux de notifications
-              </p>
-            </div>
-            <span
-              className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ${
-                runtimeMode === "live"
-                  ? "bg-[color:var(--brand-soft)] text-[color:var(--foreground)]"
+        <div
+          ref={panelRef}
+          role="dialog"
+          aria-label="Flux de notifications"
+          className="absolute right-0 top-full z-50 mt-3 w-[min(26rem,calc(100vw-1.5rem))] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-[30px] border border-[color:var(--line)] bg-[linear-gradient(180deg,rgba(255,250,245,0.98),rgba(255,255,255,0.98))] shadow-[0_24px_64px_rgba(19,33,31,0.18)]"
+        >
+          <div className="border-b border-[color:var(--line)] px-4 py-4 sm:px-5">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-xs uppercase tracking-[0.22em] text-[color:var(--muted)]">
+                  Centre live
+                </p>
+                <p className="mt-2 text-lg font-semibold tracking-[-0.03em] text-[color:var(--foreground)]">
+                  Flux de notifications
+                </p>
+              </div>
+              <span
+                className={`inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ${
+                  runtimeMode === "live"
+                    ? "bg-[color:var(--brand-soft)] text-[color:var(--foreground)]"
+                    : runtimeMode === "connecting"
+                      ? "bg-[color:var(--surface-strong)] text-[color:var(--foreground)]"
+                      : "bg-white text-[color:var(--muted)]"
+                }`}
+              >
+                <RadioTower className="h-3.5 w-3.5" />
+                {runtimeMode === "live"
+                  ? "Supabase live"
                   : runtimeMode === "connecting"
-                    ? "bg-[color:var(--surface-strong)] text-[color:var(--foreground)]"
-                    : "bg-white/90 text-[color:var(--muted)]"
-              }`}
-            >
-              <RadioTower className="h-3.5 w-3.5" />
-              {runtimeMode === "live"
-                ? "Supabase live"
-                : runtimeMode === "connecting"
-                  ? "Connexion"
-                  : "Veille"}
-            </span>
+                    ? "Connexion"
+                    : "Veille"}
+              </span>
+            </div>
+
+            <div className="mt-4 flex flex-col gap-3 rounded-[22px] border border-[color:var(--line)] bg-white px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p
+                  title={currentUser.fullName}
+                  className="truncate font-medium text-[color:var(--foreground)]"
+                >
+                  {currentUser.fullName}
+                </p>
+                <p className="text-[color:var(--muted)]">{currentUser.roleLabel}</p>
+              </div>
+              <button
+                type="button"
+                onClick={markAllAsRead}
+                disabled={!hasUnreadItems}
+                className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[color:var(--line)] bg-[color:var(--surface-strong)] px-3 py-2 font-medium text-[color:var(--foreground)] disabled:opacity-50"
+              >
+                <CheckCheck className="h-4 w-4" />
+                Tout lire
+              </button>
+            </div>
           </div>
 
-          <div className="mt-4 flex items-center justify-between rounded-[22px] border border-[color:var(--line)] bg-white/70 px-4 py-3 text-sm">
-            <p className="text-[color:var(--muted)]">
-              {currentUser.fullName} · {currentUser.roleLabel}
-            </p>
-            <button
-              type="button"
-              onClick={markAllAsRead}
-              disabled={!hasUnreadItems}
-              className="inline-flex items-center gap-2 font-medium text-[color:var(--foreground)]"
-            >
-              <CheckCheck className="h-4 w-4" />
-              Tout lire
-            </button>
-          </div>
-
-          <div className="mt-4 space-y-3">
+          <div className="max-h-[min(60vh,30rem)] space-y-3 overflow-y-auto px-4 py-4 sm:px-5">
             {items.length === 0 ? (
-              <div className="rounded-[22px] border border-dashed border-[color:var(--line)] bg-white/65 p-4 text-sm leading-6 text-[color:var(--muted)]">
+              <div className="rounded-[22px] border border-dashed border-[color:var(--line)] bg-white p-4 text-sm leading-6 text-[color:var(--muted)]">
                 Aucune notification à afficher pour le moment.
               </div>
             ) : (
@@ -213,38 +265,61 @@ export function RealtimeNotifications({
                 <Link
                   key={item.id}
                   href={item.requestReference ? `/requests/${item.requestReference}` : "/notifications"}
-                  className={`rounded-[24px] border p-4 ${
+                  onClick={() => setIsOpen(false)}
+                  className={`block rounded-[24px] border px-4 py-4 transition ${
                     item.isRead
-                      ? "border-[color:var(--line)] bg-white/70"
+                      ? "border-[color:var(--line)] bg-white"
                       : "border-[color:var(--brand)]/20 bg-[color:var(--brand-soft)]"
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-4">
-                    <p className="font-medium text-[color:var(--foreground)]">
-                      {item.title}
-                    </p>
-                    <span className="font-mono text-xs text-[color:var(--muted)]">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        {!item.isRead ? (
+                          <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[color:var(--brand)]" />
+                        ) : null}
+                        <p
+                          title={item.title}
+                          className="line-clamp-2 text-sm font-semibold text-[color:var(--foreground)]"
+                        >
+                          {item.title}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="shrink-0 font-mono text-xs text-[color:var(--muted)]">
                       {item.createdAt}
                     </span>
                   </div>
-                  <p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">
+                  <p className="mt-3 break-words text-sm leading-6 text-[color:var(--muted)]">
                     {item.body}
                   </p>
-                  <div className="mt-3 flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">
-                    <span>{item.channel === "email" ? "Email" : "In-app"}</span>
-                    <span>· {labelForNotificationCategory(item.category)}</span>
-                    {item.requestReference ? <span>· {item.requestReference}</span> : null}
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">
+                    <span className="rounded-full border border-[color:var(--line)] bg-white/90 px-2.5 py-1">
+                      {item.channel === "email" ? "Email" : "In-app"}
+                    </span>
+                    <span className="rounded-full border border-[color:var(--line)] bg-white/90 px-2.5 py-1">
+                      {labelForNotificationCategory(item.category)}
+                    </span>
+                    {item.requestReference ? (
+                      <span className="rounded-full border border-[color:var(--line)] bg-white/90 px-2.5 py-1 font-medium text-[color:var(--foreground)]">
+                        {item.requestReference}
+                      </span>
+                    ) : null}
                   </div>
                 </Link>
               ))
             )}
           </div>
-          <Link
-            href="/notifications"
-            className="mt-4 inline-flex text-sm font-medium text-[color:var(--foreground)]"
-          >
-            Ouvrir le centre complet
-          </Link>
+
+          <div className="border-t border-[color:var(--line)] bg-white/88 px-4 py-3 sm:px-5">
+            <Link
+              href="/notifications"
+              onClick={() => setIsOpen(false)}
+              className="inline-flex text-sm font-medium text-[color:var(--foreground)]"
+            >
+              Ouvrir le centre complet
+            </Link>
+          </div>
         </div>
       ) : null}
     </div>
