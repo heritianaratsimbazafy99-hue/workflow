@@ -11,6 +11,8 @@ Oui, on peut ajouter une messagerie.
 - niveau 3: messagerie directe et groupes temps reel
 
 Le SQL fourni dans `supabase/migrations/20260323190000_init_workflow_core.sql` pose deja les tables `conversations`, `conversation_members`, `messages` et `message_reads`.
+Le SQL `supabase/migrations/20260323234500_expand_admin_forms_collab.sql` ajoute l'administration, les usernames, les champs dynamiques et les mentions.
+Le SQL `supabase/migrations/20260324003000_notifications_reporting_sla.sql` ajoute les preferences de notifications, le journal SLA et le reporting.
 
 ## 2. Prerequis
 
@@ -38,6 +40,11 @@ npm run supabase:start
 La migration initiale est deja versionnee dans le repo:
 
 `/Users/heritiana/Documents/workflow/supabase/migrations/20260323190000_init_workflow_core.sql`
+
+Les migrations suivantes sont egalement a appliquer:
+
+- `/Users/heritiana/Documents/workflow/supabase/migrations/20260323234500_expand_admin_forms_collab.sql`
+- `/Users/heritiana/Documents/workflow/supabase/migrations/20260324003000_notifications_reporting_sla.sql`
 
 Appliquer la migration localement:
 
@@ -95,6 +102,9 @@ Puis ouvrir:
 - `http://localhost:3000/approvals`
 - `http://localhost:3000/requests/new`
 - `http://localhost:3000/messages`
+- `http://localhost:3000/notifications`
+- `http://localhost:3000/reports`
+- `http://localhost:3000/admin`
 
 Tester l'endpoint cron localement:
 
@@ -107,6 +117,12 @@ Generer les types TypeScript depuis la base locale:
 
 ```bash
 npm run supabase:types
+```
+
+Le script de verification TypeScript genere maintenant d'abord les types Next necessaires:
+
+```bash
+npm run typecheck
 ```
 
 ## 6. Creer le projet Supabase cloud
@@ -225,10 +241,10 @@ Authorization: Bearer YOUR_CRON_SECRET
 Le prochain bloc a construire est:
 
 1. seed SQL complet pour utilisateurs, profils et demandes de démo
-2. builder admin pour les workflows personnalisés
-3. upload de pièces jointes dans Supabase Storage
-4. dashboard analytics branché à la vraie base
-5. rebrancher le scheduler cron en fin de projet
+2. upload de pièces jointes dans Supabase Storage
+3. vrai provider email transactionnel
+4. rebrancher le scheduler cron en fin de projet
+5. durcissement final RLS / permissions
 
 Quand tu veux, je te prepare l'etape suivante avec:
 

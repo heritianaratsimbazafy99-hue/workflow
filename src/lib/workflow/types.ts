@@ -106,7 +106,23 @@ export const notificationItemSchema = z.object({
   createdAt: z.string(),
   isRead: z.boolean(),
   channel: z.enum(["in_app", "email"]),
+  category: z.enum(["general", "approval", "message", "mention", "sla", "system", "digest"]),
   requestReference: z.string().nullable(),
+});
+
+export const notificationPreferenceSchema = z.object({
+  inAppEnabled: z.boolean(),
+  emailEnabled: z.boolean(),
+  approvalsInApp: z.boolean(),
+  approvalsEmail: z.boolean(),
+  messagesInApp: z.boolean(),
+  messagesEmail: z.boolean(),
+  mentionsInApp: z.boolean(),
+  mentionsEmail: z.boolean(),
+  slaInApp: z.boolean(),
+  slaEmail: z.boolean(),
+  digestEnabled: z.boolean(),
+  digestFrequency: z.enum(["daily", "weekly"]),
 });
 
 export const workspaceAlertSchema = z.object({
@@ -244,7 +260,26 @@ export const cronRunResultSchema = z.object({
   remindersQueued: z.number().int().nonnegative(),
   escalationsQueued: z.number().int().nonnegative(),
   emailsQueued: z.number().int().nonnegative(),
+  auditLogsInserted: z.number().int().nonnegative().default(0),
   timestamp: z.string().datetime(),
+});
+
+export const reportMetricSchema = z.object({
+  label: z.string(),
+  value: z.string(),
+  detail: z.string(),
+  tone: z.enum(["good", "warning", "neutral"]),
+});
+
+export const reportBreakdownSchema = z.object({
+  label: z.string(),
+  value: z.number().int().nonnegative(),
+});
+
+export const reportApproverLoadSchema = z.object({
+  approver: z.string(),
+  pendingCount: z.number().int().nonnegative(),
+  overdueCount: z.number().int().nonnegative(),
 });
 
 export type RequestStatus = z.infer<typeof requestStatusSchema>;
@@ -259,6 +294,7 @@ export type AuditEvent = z.infer<typeof auditEventSchema>;
 export type AutomationRule = z.infer<typeof automationRuleSchema>;
 export type CurrentUser = z.infer<typeof currentUserSchema>;
 export type NotificationItem = z.infer<typeof notificationItemSchema>;
+export type NotificationPreference = z.infer<typeof notificationPreferenceSchema>;
 export type WorkspaceAlert = z.infer<typeof workspaceAlertSchema>;
 export type RequestStepInstance = z.infer<typeof requestStepInstanceSchema>;
 export type RequestComment = z.infer<typeof requestCommentSchema>;
@@ -269,3 +305,6 @@ export type RequestDetail = z.infer<typeof requestDetailSchema>;
 export type FormField = z.infer<typeof formFieldSchema>;
 export type FormSection = z.infer<typeof formSectionSchema>;
 export type CronRunResult = z.infer<typeof cronRunResultSchema>;
+export type ReportMetric = z.infer<typeof reportMetricSchema>;
+export type ReportBreakdown = z.infer<typeof reportBreakdownSchema>;
+export type ReportApproverLoad = z.infer<typeof reportApproverLoadSchema>;

@@ -4,6 +4,12 @@ import {
   buildImmediateNotificationEmail,
   sendImmediateEmail,
 } from "@/lib/notifications/email";
+import {
+  canReceiveEmail,
+  canReceiveInApp,
+  getNotificationPreferencesForUsers,
+  type NotificationCategory,
+} from "@/lib/notifications/preferences";
 
 export type NotificationRecipient = {
   id: string;
@@ -16,6 +22,7 @@ export async function dispatchNotifications(args: {
   title: string;
   body: string;
   channel?: "in_app" | "email";
+  category?: NotificationCategory;
   requestId?: string | null;
   sendEmail?: boolean;
   actionPath?: string;
@@ -28,24 +35,34 @@ export async function dispatchNotifications(args: {
     return { inserted, emailed };
   }
 
+  const category = args.category ?? "general";
+  const preferencesByUser = await getNotificationPreferencesForUsers(
+    args.recipients.map((recipient) => recipient.id),
+  );
+
   if (hasSupabaseServiceRoleKey()) {
     const service = createSupabaseServiceRoleClient();
-    const rows = args.recipients.map((recipient) => ({
-      user_id: recipient.id,
-      request_id: args.requestId ?? null,
-      channel: args.channel ?? "in_app",
-      title: args.title,
-      body: args.body,
-      sent_at: args.channel === "email" ? new Date().toISOString() : null,
-    }));
+    const rows = args.recipients
+      .filter((recipient) => canReceiveInApp(preferencesByUser[recipient.id], category))
+      .map((recipient) => ({
+        user_id: recipient.id,
+        request_id: args.requestId ?? null,
+        channel: args.channel ?? "in_app",
+        category,
+        title: args.title,
+        body: args.body,
+        sent_at: args.channel === "email" ? new Date().toISOString() : null,
+      }));
 
-    const { error } = await service.from("notifications").insert(rows);
+    if (rows.length > 0) {
+      const { error } = await service.from("notifications").insert(rows);
 
-    if (error) {
-      throw error;
+      if (error) {
+        throw error;
+      }
+
+      inserted = rows.length;
     }
-
-    inserted = rows.length;
   }
 
   if (!args.sendEmail) {
@@ -53,7 +70,10 @@ export async function dispatchNotifications(args: {
   }
 
   for (const recipient of args.recipients) {
-    if (!recipient.email) {
+    if (
+      !recipient.email ||
+      !canReceiveEmail(preferencesByUser[recipient.id], category)
+    ) {
       continue;
     }
 

@@ -154,6 +154,19 @@ export async function getAdminControlTowerData(): Promise<AdminControlTowerData>
 
   const service = createSupabaseServiceRoleClient();
   const canManage = await canManageAdministration(actor, service);
+
+  if (!canManage) {
+    return {
+      mode: "live",
+      actor,
+      canManage,
+      departments: [],
+      profiles: [],
+      requestTypes: [],
+      templates: [],
+    };
+  }
+
   const [departmentsResult, profilesResult, requestTypesResult, fieldDefsResult, templatesResult, stepsResult] =
     await Promise.all([
       service.from("departments").select("id, code, name").order("name", { ascending: true }),

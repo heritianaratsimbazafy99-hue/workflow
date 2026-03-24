@@ -35,6 +35,7 @@ type SupabaseNotificationRow = {
   user_id: string;
   request_id: string | null;
   channel: "in_app" | "email";
+  category: "general" | "approval" | "message" | "mention" | "sla" | "system" | "digest";
   title: string;
   body: string;
   read_at: string | null;
@@ -134,6 +135,7 @@ export function createDemoNotification(args: {
   title: string;
   body: string;
   channel?: "in_app" | "email";
+  category?: "general" | "approval" | "message" | "mention" | "sla" | "system" | "digest";
   requestReference?: string | null;
 }): NotificationItem {
   return {
@@ -144,6 +146,7 @@ export function createDemoNotification(args: {
     createdAt: formatUiTime(new Date().toISOString()),
     isRead: false,
     channel: args.channel ?? "in_app",
+    category: args.category ?? "general",
     requestReference: args.requestReference ?? null,
   };
 }
@@ -182,6 +185,7 @@ export function mapNotificationRowToView(
     createdAt: formatUiTime(row.created_at),
     isRead: Boolean(row.read_at),
     channel: row.channel,
+    category: row.category,
     requestReference: row.request_id,
   };
 }

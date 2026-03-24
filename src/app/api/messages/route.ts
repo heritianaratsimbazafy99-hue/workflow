@@ -276,14 +276,35 @@ export async function POST(request: Request) {
       recipients,
       title: `Nouveau message · ${conversation?.title ?? "Canal dossier"}`,
       body: `${actor.fullName} : ${truncateText(payload.body, 120)}`,
+      category: "message",
       requestId: conversation?.request_id ?? null,
       sendEmail: payload.sendEmail,
-      actionPath: `/messages`,
+      actionPath: `/messages?conversation=${payload.conversationId}`,
       actionLabel: "Voir la conversation",
     });
 
     notificationsInserted = dispatchResult.inserted;
     emailsSent = dispatchResult.emailed;
+  }
+
+  if (mentionRecipients.length > 0) {
+    const mentionDispatch = await dispatchNotifications({
+      recipients: mentionRecipients.map((recipient) => ({
+        id: recipient.id,
+        email: recipient.email,
+        fullName: recipient.full_name,
+      })),
+      title: `Mention · ${conversation?.title ?? "Canal dossier"}`,
+      body: `${actor.fullName} t’a mentionné dans un message.`,
+      category: "mention",
+      requestId: conversation?.request_id ?? null,
+      sendEmail: payload.sendEmail,
+      actionPath: `/messages?conversation=${payload.conversationId}`,
+      actionLabel: "Voir la mention",
+    });
+
+    notificationsInserted += mentionDispatch.inserted;
+    emailsSent += mentionDispatch.emailed;
   }
 
   return NextResponse.json({

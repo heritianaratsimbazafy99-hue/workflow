@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { BellRing, CheckCheck, RadioTower } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -255,6 +256,12 @@ export function RealtimeNotifications({
               ))
             )}
           </div>
+          <Link
+            href="/notifications"
+            className="mt-4 inline-flex text-sm font-medium text-[color:var(--foreground)]"
+          >
+            Ouvrir le centre complet
+          </Link>
         </div>
       ) : null}
     </div>
@@ -283,6 +290,15 @@ function mapRealtimeNotification(payload: Record<string, unknown>): Notification
     createdAt: formatClockValue(payload.created_at),
     isRead: Boolean(payload.read_at),
     channel: payload.channel === "email" ? "email" : "in_app",
+    category:
+      payload.category === "approval" ||
+      payload.category === "message" ||
+      payload.category === "mention" ||
+      payload.category === "sla" ||
+      payload.category === "system" ||
+      payload.category === "digest"
+        ? payload.category
+        : "general",
     requestReference:
       typeof payload.request_id === "string" ? payload.request_id : null,
   };

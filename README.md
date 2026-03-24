@@ -25,6 +25,10 @@ Base produit pour une application interne de gestion des demandes et workflows d
 - une structure serveur pour les emails immediats via `EMAIL_PROVIDER=console|resend`
 - un `vercel.json` compatible `Vercel Hobby` sans cron actif pour le moment
 - une migration Supabase versionnee dans `supabase/migrations/20260323190000_init_workflow_core.sql`
+- une tour de controle admin `/admin` pour profils, types, champs et templates
+- un centre `/notifications` avec preferences in-app/email/digest
+- un espace `/reports` avec exports CSV, charge approbateur et repartitions live
+- une deuxieme migration pour notifications, SLA et reporting dans `supabase/migrations/20260324003000_notifications_reporting_sla.sql`
 
 ## Demarrage local
 
@@ -52,6 +56,9 @@ npm run dev
 - `http://localhost:3000/workspace` pour le cockpit
 - `http://localhost:3000/approvals` pour l'inbox approbateur
 - `http://localhost:3000/messages` pour la messagerie
+- `http://localhost:3000/notifications` pour le centre de preferences
+- `http://localhost:3000/reports` pour le reporting
+- `http://localhost:3000/admin` pour l'administration
 
 ## Scripts utiles
 
@@ -81,12 +88,13 @@ Le cron appelle `GET /api/cron/process-reminders`.
 - en `Vercel Hobby`, aucun cron n'est active dans `vercel.json` pour eviter le blocage de deploy
 - l'endpoint est conserve et sera rebranche plus tard avec `Vercel Pro` ou un scheduler externe
 - la logique metier ne doit pas vivre dans le scheduler: il ne fait que reveiller le moteur
+- la logique SLA live est deja prete: rappels proches, escalades hors SLA et audit `workflow_sla_events`
 
 ## Etape suivante recommandee
 
-1. brancher un seed de démonstration complet avec utilisateurs réels
-2. ajouter le builder admin de workflows personnalisés
-3. brancher les pieces jointes Supabase Storage
+1. brancher les pieces jointes Supabase Storage
+2. connecter un vrai provider email de production
+3. reactiver le scheduler final en fin de projet
 
 ## Guides ajoutes
 

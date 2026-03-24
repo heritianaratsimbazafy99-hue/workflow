@@ -30,6 +30,7 @@ export const notificationInbox = notificationItemSchema.array().parse([
     createdAt: "11:14",
     isRead: false,
     channel: "in_app",
+    category: "approval",
     requestReference: "REQ-2026-000143",
   },
   {
@@ -40,6 +41,7 @@ export const notificationInbox = notificationItemSchema.array().parse([
     createdAt: "10:30",
     isRead: false,
     channel: "in_app",
+    category: "sla",
     requestReference: "REQ-2026-000145",
   },
   {
@@ -50,6 +52,7 @@ export const notificationInbox = notificationItemSchema.array().parse([
     createdAt: "09:04",
     isRead: true,
     channel: "in_app",
+    category: "message",
     requestReference: "REQ-2026-000143",
   },
 ]);

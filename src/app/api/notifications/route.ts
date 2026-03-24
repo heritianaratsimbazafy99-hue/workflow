@@ -15,6 +15,10 @@ export const dynamic = "force-dynamic";
 const createNotificationsSchema = z.object({
   userIds: z.array(z.uuid()).min(1),
   channel: z.enum(["in_app", "email"]).optional().default("in_app"),
+  category: z
+    .enum(["general", "approval", "message", "mention", "sla", "system", "digest"])
+    .optional()
+    .default("system"),
   title: z.string().trim().min(1).max(160),
   body: z.string().trim().min(1).max(1000),
   requestId: z.uuid().optional().nullable(),
@@ -32,6 +36,7 @@ type NotificationRow = {
   user_id: string;
   request_id: string | null;
   channel: "in_app" | "email";
+  category: "general" | "approval" | "message" | "mention" | "sla" | "system" | "digest";
   title: string;
   body: string;
   read_at: string | null;
@@ -59,7 +64,7 @@ export async function GET(request: Request) {
   const service = createSupabaseServiceRoleClient();
   const { data, error } = await service
     .from("notifications")
-    .select("id, user_id, request_id, channel, title, body, read_at, created_at")
+    .select("id, user_id, request_id, channel, category, title, body, read_at, created_at")
     .eq("user_id", actor.id)
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -104,6 +109,7 @@ export async function POST(request: Request) {
           title: payload.title,
           body: payload.body,
           channel: payload.channel,
+          category: payload.category,
           requestReference: payload.requestReference ?? null,
         }),
       ),
@@ -130,6 +136,7 @@ export async function POST(request: Request) {
     title: payload.title,
     body: payload.body,
     channel: payload.channel,
+    category: payload.category,
     requestId: payload.requestId ?? null,
     sendEmail: payload.sendEmail,
     actionPath: payload.actionPath,

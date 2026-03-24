@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  BarChart3,
   BellRing,
   House,
   MessageSquareMore,
@@ -32,6 +33,16 @@ const navigation = [
     href: "/messages",
     label: "Messagerie",
     icon: MessageSquareMore,
+  },
+  {
+    href: "/notifications",
+    label: "Notifications",
+    icon: BellRing,
+  },
+  {
+    href: "/reports",
+    label: "Reports",
+    icon: BarChart3,
   },
   {
     href: "/admin",

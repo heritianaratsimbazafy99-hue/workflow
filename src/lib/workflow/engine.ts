@@ -1238,6 +1238,7 @@ export async function createWorkflowRequest(
         ],
         title: `Nouvelle validation · ${request.reference}`,
         body: `${request.title} attend ton action sur l'étape ${firstStep.name}.`,
+        category: "approval",
         requestId: request.id,
         sendEmail: true,
         actionPath: `/requests/${request.reference}`,
@@ -1398,6 +1399,7 @@ export async function applyWorkflowDecision(
           ],
           title: `Validation requise · ${request.reference}`,
           body: `${request.title} vient d’entrer dans l’étape ${nextStep.name}.`,
+          category: "approval",
           requestId: request.id,
           sendEmail: true,
           actionPath: `/requests/${request.reference}`,
@@ -1457,6 +1459,7 @@ export async function applyWorkflowDecision(
         ],
         title: `Demande approuvée · ${request.reference}`,
         body: `${request.title} a été approuvée et le workflow est terminé.`,
+        category: "approval",
         requestId: request.id,
         sendEmail: true,
         actionPath: `/requests/${request.reference}`,
@@ -1536,6 +1539,7 @@ export async function applyWorkflowDecision(
         input.decision === "reject"
           ? `${request.title} a été rejetée à l’étape ${currentStep.name}.`
           : `${request.title} attend tes corrections après l’étape ${currentStep.name}.`,
+      category: "approval",
       requestId: request.id,
       sendEmail: true,
       actionPath: `/requests/${request.reference}`,
