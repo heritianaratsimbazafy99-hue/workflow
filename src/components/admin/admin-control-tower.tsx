@@ -4,7 +4,9 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Blocks,
+  Mail,
   FileCog,
+  Radar,
   ShieldCheck,
   Sparkles,
   Users,
@@ -80,6 +82,61 @@ export function AdminControlTower({ data }: { data: AdminControlTowerData }) {
           {feedback}
         </div>
       ) : null}
+
+      <SurfaceCard>
+        <SectionHeader
+          icon={Radar}
+          title="Ops readiness"
+          detail="Etat de la configuration email, protection cron et point d'entrée de production."
+        />
+        <div className="grid gap-4 lg:grid-cols-4">
+          <OpsTile
+            label="Provider email"
+            value={data.ops.emailProvider}
+            detail={data.ops.emailConfigured ? "configuré" : "à compléter"}
+          />
+          <OpsTile
+            label="Email de test"
+            value={data.ops.actorEmail ?? "n/a"}
+            detail="adresse du compte connecté"
+          />
+          <OpsTile
+            label="Cron protégé"
+            value={data.ops.cronProtected ? "ON" : "OFF"}
+            detail="contrôle par CRON_SECRET"
+          />
+          <OpsTile
+            label="APP_BASE_URL"
+            value={data.ops.appBaseUrl ?? "n/a"}
+            detail="base des liens email"
+          />
+        </div>
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={() =>
+              handleAsync(async () =>
+                submitJson(
+                  "/api/admin/test-email",
+                  "POST",
+                  {},
+                  "Email de test déclenché.",
+                ),
+              )
+            }
+            className="rounded-full bg-[color:var(--foreground)] px-4 py-2 text-sm font-medium text-[color:var(--surface-strong)] disabled:opacity-60"
+          >
+            <span className="inline-flex items-center gap-2">
+              <Mail className="h-4 w-4" />
+              Envoyer un email de test
+            </span>
+          </button>
+          <p className="text-sm text-[color:var(--muted)]">
+            Endpoint cron prêt: <span className="font-mono">{data.ops.cronEndpoint}</span>
+          </p>
+        </div>
+      </SurfaceCard>
 
       <section className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
         <SurfaceCard>
@@ -311,6 +368,28 @@ function SectionHeader({
         </h2>
         <p className="mt-1 text-sm leading-6 text-[color:var(--muted)]">{detail}</p>
       </div>
+    </div>
+  );
+}
+
+function OpsTile({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <div className="rounded-[22px] border border-[color:var(--line)] bg-white/80 p-4">
+      <p className="text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">
+        {label}
+      </p>
+      <p className="mt-3 truncate text-lg font-semibold text-[color:var(--foreground)]">
+        {value}
+      </p>
+      <p className="mt-1 text-sm text-[color:var(--muted)]">{detail}</p>
     </div>
   );
 }

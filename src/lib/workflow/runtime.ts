@@ -6,7 +6,7 @@ import type {
   NotificationItem,
 } from "@/lib/workflow/types";
 import { hasPublicSupabaseEnv } from "@/lib/supabase/config";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 
 export type RuntimeMode = "demo" | "live";
 
@@ -71,11 +71,21 @@ export async function resolveRuntimeActor(): Promise<RuntimeActor> {
       };
     }
 
-    const { data } = await supabase
-      .from("profiles")
-      .select("id, email, full_name, display_name, username, job_title, role")
-      .eq("id", user.id)
-      .maybeSingle();
+    const data = hasSupabaseServiceRoleKey()
+      ? (
+          await createSupabaseServiceRoleClient()
+            .from("profiles")
+            .select("id, email, full_name, display_name, username, job_title, role")
+            .eq("id", user.id)
+            .maybeSingle()
+        ).data
+      : (
+          await supabase
+            .from("profiles")
+            .select("id, email, full_name, display_name, username, job_title, role")
+            .eq("id", user.id)
+            .maybeSingle()
+        ).data;
 
     const profile = (data as SupabaseProfileRow | null) ?? null;
     const fullName = deriveUserLabel(profile, { compact: false });

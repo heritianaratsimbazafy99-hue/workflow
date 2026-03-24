@@ -246,6 +246,42 @@ export default async function RequestDetailPage({
               ))}
             </div>
           </SurfaceCard>
+
+          <SurfaceCard>
+            <SectionTitle
+              title="SLA et relances"
+              description="Rappels et escalades déjà émis sur ce dossier."
+            />
+            {request.slaEvents.length === 0 ? (
+              <div className="rounded-[22px] border border-dashed border-[color:var(--line)] bg-white/75 p-4 text-sm leading-6 text-[color:var(--muted)]">
+                Aucun rappel SLA émis pour le moment.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {request.slaEvents.map((event) => (
+                  <div
+                    key={event.id}
+                    className="rounded-[22px] border border-[color:var(--line)] bg-white/80 p-4"
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <p className="font-medium text-[color:var(--foreground)]">
+                        {event.kind === "escalation" ? "Escalade" : "Rappel"}
+                      </p>
+                      <span className="font-mono text-xs text-[color:var(--muted)]">
+                        {event.createdAt}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-sm text-[color:var(--muted)]">
+                      Destinataire: {event.recipient}
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-[color:var(--muted)]">
+                      {event.detail}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </SurfaceCard>
         </div>
 
         <div className="space-y-6">

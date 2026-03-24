@@ -141,6 +141,14 @@ type RequestAttachmentRow = {
   created_at: string;
 };
 
+type WorkflowSlaEventRow = {
+  id: string;
+  recipient_id: string;
+  event_kind: "reminder" | "escalation";
+  payload: Record<string, unknown> | null;
+  created_at: string;
+};
+
 type AuditLogRow = {
   id: number;
   actor_id: string | null;
@@ -726,6 +734,7 @@ export async function getRequestDetailData(
     stepsResult,
     commentsResult,
     attachmentsResult,
+    slaEventsResult,
     fieldDefsResult,
     profilesResult,
     departmentsResult,
@@ -774,6 +783,12 @@ export async function getRequestDetailData(
       .eq("request_id", requestRow.id)
       .order("created_at", { ascending: false }),
     service
+      .from("workflow_sla_events")
+      .select("id, recipient_id, event_kind, payload, created_at")
+      .eq("request_id", requestRow.id)
+      .order("created_at", { ascending: false })
+      .limit(8),
+    service
       .from("request_type_field_definitions")
       .select(
         "id, request_type_id, section_key, section_title, field_key, label, field_type, helper_text, placeholder, required, width, options_json, sort_order, is_active",
@@ -815,6 +830,7 @@ export async function getRequestDetailData(
   const steps = (stepsResult.data as RequestStepInstanceRow[] | null) ?? [];
   const comments = (commentsResult.data as RequestCommentRow[] | null) ?? [];
   const attachments = (attachmentsResult.data as RequestAttachmentRow[] | null) ?? [];
+  const slaEvents = (slaEventsResult.data as WorkflowSlaEventRow[] | null) ?? [];
   const fieldDefinitions =
     (fieldDefsResult.data as RequestTypeFieldDefinitionRow[] | null) ?? [];
   const conversation = (conversationResult.data as ConversationRow | null) ?? null;
@@ -945,6 +961,13 @@ export async function getRequestDetailData(
       uploadedAt: formatClockOrDate(attachment.created_at),
       mimeType: attachment.mime_type,
       downloadPath: `/api/requests/${requestRow.reference}/attachments/${attachment.id}`,
+    })),
+    slaEvents: slaEvents.map((event) => ({
+      id: event.id,
+      kind: event.event_kind,
+      recipient: deriveUserLabel(allProfiles[event.recipient_id], { compact: true }),
+      createdAt: formatClockOrDate(event.created_at),
+      detail: buildSlaEventDetail(event),
     })),
     customFields,
     conversationId: conversation?.id ?? "",
@@ -1882,6 +1905,17 @@ function buildAuditDetail(row: AuditLogRow) {
   }
 
   return pieces.join(" · ") || "Événement workflow journalisé.";
+}
+
+function buildSlaEventDetail(event: WorkflowSlaEventRow) {
+  const payload = isRecord(event.payload) ? event.payload : {};
+  const stepName = typeof payload.step_name === "string" ? payload.step_name : "Étape";
+  const requestReference =
+    typeof payload.request_reference === "string" ? payload.request_reference : null;
+  const prefix =
+    event.event_kind === "escalation" ? "Escalade envoyée" : "Rappel envoyé";
+
+  return [prefix, stepName, requestReference].filter(Boolean).join(" · ");
 }
 
 function inferCommentKind(body: string): RequestDetail["comments"][number]["kind"] {

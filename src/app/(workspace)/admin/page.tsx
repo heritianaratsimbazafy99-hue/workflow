@@ -3,6 +3,8 @@ import { AdminControlTower } from "@/components/admin/admin-control-tower";
 import { PageHeader, PillLink } from "@/components/workspace/ui";
 import { getAdminControlTowerData } from "@/lib/admin/service";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminPage() {
   const data = await getAdminControlTowerData();
 

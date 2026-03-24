@@ -1,4 +1,5 @@
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { getEmailConfig, hasCronSecret } from "@/lib/env/server";
 import {
   canUseSupabaseLiveMode,
   deriveUserHandle,
@@ -131,6 +132,14 @@ export type AdminControlTowerData = {
   mode: RuntimeMode;
   actor: RuntimeActor;
   canManage: boolean;
+  ops: {
+    actorEmail: string | null;
+    emailProvider: "console" | "resend";
+    emailConfigured: boolean;
+    cronProtected: boolean;
+    appBaseUrl: string | null;
+    cronEndpoint: string;
+  };
   departments: AdminDepartment[];
   profiles: AdminProfile[];
   requestTypes: AdminRequestType[];
@@ -145,6 +154,14 @@ export async function getAdminControlTowerData(): Promise<AdminControlTowerData>
       mode: "demo",
       actor,
       canManage: true,
+      ops: {
+        actorEmail: actor.email,
+        emailProvider: "console",
+        emailConfigured: false,
+        cronProtected: false,
+        appBaseUrl: null,
+        cronEndpoint: "/api/cron/process-reminders",
+      },
       departments: [],
       profiles: [],
       requestTypes: [],
@@ -154,12 +171,28 @@ export async function getAdminControlTowerData(): Promise<AdminControlTowerData>
 
   const service = createSupabaseServiceRoleClient();
   const canManage = await canManageAdministration(actor, service);
+  const emailConfig = getEmailConfig();
+  const appBaseUrl = emailConfig.APP_BASE_URL ?? null;
+  const ops = {
+    actorEmail: actor.email,
+    emailProvider: emailConfig.EMAIL_PROVIDER,
+    emailConfigured:
+      emailConfig.EMAIL_PROVIDER === "resend"
+        ? Boolean(emailConfig.RESEND_API_KEY && emailConfig.EMAIL_FROM)
+        : Boolean(emailConfig.EMAIL_FROM),
+    cronProtected: hasCronSecret(),
+    appBaseUrl,
+    cronEndpoint: appBaseUrl
+      ? new URL("/api/cron/process-reminders", appBaseUrl).toString()
+      : "/api/cron/process-reminders",
+  };
 
   if (!canManage) {
     return {
       mode: "live",
       actor,
       canManage,
+      ops,
       departments: [],
       profiles: [],
       requestTypes: [],
@@ -268,6 +301,7 @@ export async function getAdminControlTowerData(): Promise<AdminControlTowerData>
     mode: "live",
     actor,
     canManage,
+    ops,
     departments,
     profiles,
     requestTypes,
@@ -283,7 +317,13 @@ export async function canManageAdministration(
     return true;
   }
 
-  if (actor.appRole === "admin") {
+  const { data: actorProfile } = await service
+    .from("profiles")
+    .select("role")
+    .eq("id", actor.id)
+    .maybeSingle();
+
+  if ((actorProfile as { role?: string } | null)?.role === "admin") {
     return true;
   }
 

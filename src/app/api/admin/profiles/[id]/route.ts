@@ -34,6 +34,26 @@ export async function PATCH(
   }
 
   const { id } = await params;
+  const { data: currentProfile } = await service
+    .from("profiles")
+    .select("role")
+    .eq("id", id)
+    .maybeSingle();
+
+  if ((currentProfile as { role?: string } | null)?.role === "admin" && payload.role !== "admin") {
+    const { count } = await service
+      .from("profiles")
+      .select("id", { head: true, count: "exact" })
+      .eq("role", "admin");
+
+    if ((count ?? 0) <= 1) {
+      return NextResponse.json(
+        { error: "Impossible de retirer le dernier rôle admin actif." },
+        { status: 400 },
+      );
+    }
+  }
+
   const { error } = await service
     .from("profiles")
     .update({

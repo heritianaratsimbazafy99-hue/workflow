@@ -168,6 +168,14 @@ export const requestAttachmentSchema = z.object({
   downloadPath: z.string().nullable().default(null),
 });
 
+export const requestSlaEventSchema = z.object({
+  id: z.string(),
+  kind: z.enum(["reminder", "escalation"]),
+  recipient: z.string(),
+  createdAt: z.string(),
+  detail: z.string(),
+});
+
 export const conversationMessageSchema = z.object({
   id: z.string(),
   conversationId: z.string(),
@@ -215,6 +223,7 @@ export const requestDetailSchema = z.object({
   steps: z.array(requestStepInstanceSchema),
   comments: z.array(requestCommentSchema),
   attachments: z.array(requestAttachmentSchema),
+  slaEvents: z.array(requestSlaEventSchema).default([]),
   customFields: z
     .array(
       z.object({
@@ -301,6 +310,7 @@ export type WorkspaceAlert = z.infer<typeof workspaceAlertSchema>;
 export type RequestStepInstance = z.infer<typeof requestStepInstanceSchema>;
 export type RequestComment = z.infer<typeof requestCommentSchema>;
 export type RequestAttachment = z.infer<typeof requestAttachmentSchema>;
+export type RequestSlaEvent = z.infer<typeof requestSlaEventSchema>;
 export type ConversationMessage = z.infer<typeof conversationMessageSchema>;
 export type ConversationPreview = z.infer<typeof conversationPreviewSchema>;
 export type RequestDetail = z.infer<typeof requestDetailSchema>;
