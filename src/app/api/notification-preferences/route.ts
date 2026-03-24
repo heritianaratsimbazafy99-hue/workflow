@@ -3,7 +3,7 @@ import { z } from "zod";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { defaultNotificationPreference } from "@/lib/notifications/preferences";
 import {
-  canUseSupabaseLiveMode,
+  getLiveModeIssue,
   resolveRuntimeActor,
 } from "@/lib/workflow/runtime";
 
@@ -26,13 +26,10 @@ const preferenceSchema = z.object({
 
 export async function GET() {
   const actor = await resolveRuntimeActor();
+  const liveModeIssue = getLiveModeIssue(actor);
 
-  if (!canUseSupabaseLiveMode(actor)) {
-    return NextResponse.json({
-      mode: "demo",
-      actor,
-      preference: defaultNotificationPreference,
-    });
+  if (liveModeIssue) {
+    return NextResponse.json({ error: liveModeIssue.message }, { status: liveModeIssue.status });
   }
 
   const service = createSupabaseServiceRoleClient();
@@ -68,13 +65,10 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   const actor = await resolveRuntimeActor();
+  const liveModeIssue = getLiveModeIssue(actor);
 
-  if (!canUseSupabaseLiveMode(actor)) {
-    return NextResponse.json({
-      mode: "demo",
-      actor,
-      preference: defaultNotificationPreference,
-    });
+  if (liveModeIssue) {
+    return NextResponse.json({ error: liveModeIssue.message }, { status: liveModeIssue.status });
   }
 
   let payload: z.infer<typeof preferenceSchema>;

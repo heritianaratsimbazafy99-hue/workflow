@@ -21,7 +21,7 @@ export default async function NewRequestPage() {
       <PageHeader
         eyebrow="Création guidée"
         title="Nouvelle demande interne"
-        description="Le formulaire crée maintenant une vraie demande workflow quand Supabase Auth et la base sont actifs. En mode démo, il reste testable sans casser le reste du produit."
+        description="Le formulaire crée une vraie demande workflow, instancie ses étapes et ouvre immédiatement le dossier."
         actions={
           <>
             <PillLink href="/workspace" label="Retour pilotage" />
@@ -45,7 +45,7 @@ export default async function NewRequestPage() {
         />
         <SummaryStat
           label="Mode runtime"
-          value={catalog.mode === "live" ? "LIVE" : "DEMO"}
+          value={catalog.mode === "live" ? "LIVE" : "CONFIG"}
           icon={Paperclip}
           detail="Création dossier"
         />
@@ -121,7 +121,7 @@ export default async function NewRequestPage() {
           <SurfaceCard>
             <SectionTitle
               title="Catalogue branché"
-              description="Les types et templates affichés ici viennent désormais du moteur workflow quand le mode live est actif."
+              description="Les types et templates affichés ici viennent du moteur workflow et de la configuration admin active."
             />
             <div className="space-y-3">
               {catalog.requestTypes.map((item) => (

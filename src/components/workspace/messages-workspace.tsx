@@ -30,10 +30,10 @@ import type {
   CurrentUser,
 } from "@/lib/workflow/types";
 
-type RuntimeMode = "demo" | "live" | "connecting";
+type RuntimeMode = "idle" | "live" | "connecting";
 
 type MessagesWorkspaceApiResponse = {
-  mode: "demo" | "live";
+  mode: "live";
   actor?: {
     id: string;
   };
@@ -62,7 +62,7 @@ export function MessagesWorkspace({
   >({
     ...(initialActiveConversationId ? { [initialActiveConversationId]: initialMessages } : {}),
   });
-  const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>("demo");
+  const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>("idle");
   const [runtimeActorId, setRuntimeActorId] = useState(currentUser.id);
   const [composer, setComposer] = useState("");
   const [search, setSearch] = useState("");
@@ -141,7 +141,7 @@ export function MessagesWorkspace({
 
       setRuntimeMode(data.mode);
     } catch {
-      setRuntimeMode("demo");
+      setRuntimeMode("idle");
     }
   });
 
@@ -169,7 +169,7 @@ export function MessagesWorkspace({
       } = await supabase.auth.getUser();
 
       if (!user || isDisposed) {
-        setRuntimeMode((current) => (current === "live" ? current : "demo"));
+        setRuntimeMode((current) => (current === "live" ? current : "idle"));
         return;
       }
 
@@ -350,7 +350,7 @@ export function MessagesWorkspace({
       }
 
       const data = (await response.json()) as {
-        mode: "demo" | "live";
+        mode: "live";
         actor?: {
           id: string;
         };
@@ -423,7 +423,7 @@ export function MessagesWorkspace({
                 ? "Supabase live"
                 : runtimeMode === "connecting"
                   ? "Connexion"
-                  : "Démo locale"}
+                  : "Veille"}
             </span>
           </div>
 

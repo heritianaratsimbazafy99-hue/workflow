@@ -477,7 +477,7 @@ export default async function RequestDetailPage({
               <div className="grid gap-3 sm:grid-cols-2">
                 <LabeledValue
                   label="Mode runtime"
-                  value={actor.mode === "live" ? "Supabase live" : "Démo locale"}
+                  value={actor.mode === "live" ? "Supabase live" : "Configuration requise"}
                 />
                 <LabeledValue
                   label="Canal dossier"

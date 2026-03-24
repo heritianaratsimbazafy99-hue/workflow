@@ -38,7 +38,7 @@ export default async function LoginPage({
                 Connexion interne pour activer le moteur live.
               </h1>
               <p className="mt-5 text-base leading-7 text-white/70">
-                Une fois connecté, tu bascules du mode démo au mode Supabase live:
+                Une fois connecté, tu accèdes directement à la V1 interne:
                 vraies demandes, vraies approbations, vraies notifications et historique
                 persistant.
               </p>

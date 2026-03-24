@@ -51,7 +51,15 @@ const navigation = [
   },
 ] as const;
 
-export function WorkspaceSidebar() {
+export function WorkspaceSidebar({
+  stats,
+}: {
+  stats: {
+    criticalRequests: number;
+    unreadMessages: number;
+    remindersToday: number;
+  };
+}) {
   const pathname = usePathname();
 
   return (
@@ -78,19 +86,19 @@ export function WorkspaceSidebar() {
           <div className="flex items-center justify-between">
             <span>Demandes critiques</span>
             <span className="rounded-full bg-[color:var(--accent-soft)] px-2 py-1 text-xs">
-              4
+              {stats.criticalRequests}
             </span>
           </div>
           <div className="flex items-center justify-between">
             <span>Messages non lus</span>
             <span className="rounded-full bg-[color:var(--brand-soft)] px-2 py-1 text-xs">
-              7
+              {stats.unreadMessages}
             </span>
           </div>
           <div className="flex items-center justify-between">
             <span>Relances du jour</span>
             <span className="rounded-full bg-[color:var(--surface-strong)] px-2 py-1 text-xs">
-              12
+              {stats.remindersToday}
             </span>
           </div>
         </div>

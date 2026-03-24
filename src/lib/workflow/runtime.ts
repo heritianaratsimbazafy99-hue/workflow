@@ -46,8 +46,42 @@ export type RuntimeActor = CurrentUser & {
   mode: RuntimeMode;
 };
 
+export type LiveModeIssue = {
+  kind: "auth" | "config";
+  status: 401 | 503;
+  message: string;
+};
+
 export function canUseSupabaseLiveMode(actor: RuntimeActor) {
-  return actor.mode === "live" && hasPublicSupabaseEnv() && hasSupabaseServiceRoleKey();
+  return getLiveModeIssue(actor) === null;
+}
+
+export function getLiveModeIssue(actor: RuntimeActor): LiveModeIssue | null {
+  if (!hasPublicSupabaseEnv()) {
+    return {
+      kind: "config",
+      status: 503,
+      message: "Configuration Supabase publique absente.",
+    };
+  }
+
+  if (!hasSupabaseServiceRoleKey()) {
+    return {
+      kind: "config",
+      status: 503,
+      message: "SUPABASE_SERVICE_ROLE_KEY absente.",
+    };
+  }
+
+  if (actor.mode !== "live") {
+    return {
+      kind: "auth",
+      status: 401,
+      message: "Connexion Supabase requise pour accéder à la V1.",
+    };
+  }
+
+  return null;
 }
 
 export async function resolveRuntimeActor(): Promise<RuntimeActor> {

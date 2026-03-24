@@ -26,7 +26,7 @@ export default async function ApprovalsPage() {
       <PageHeader
         eyebrow="Inbox approbateur"
         title="Traiter, relancer, escalader"
-        description="Cette vue lit maintenant les vraies étapes en attente quand le mode live est actif et retombe sur le mock sinon."
+        description="Cette vue lit les étapes en attente, leurs SLA et les actions de décision directement dans le workflow actif."
         actions={
           <>
             <PillLink href="/workspace" label="Retour pilotage" />

@@ -14,17 +14,295 @@ import {
   Waypoints,
   Workflow,
 } from "lucide-react";
-import {
-  approvalInbox,
-  auditTimeline,
-  automationRules,
-  dashboardMetrics,
-  deliveryPhases,
-  platformModules,
-  requestTypes,
-  stackChoices,
-  workflowTemplates,
-} from "@/lib/workflow/mock-data";
+
+const heroMetrics = [
+  {
+    label: "Runtime produit",
+    value: "Live",
+    trend: "Auth, Realtime, emails et cron en service",
+    tone: "good",
+  },
+  {
+    label: "Workflows",
+    value: "Personnalisables",
+    trend: "Templates, étapes et assignations gérés par l’admin",
+    tone: "neutral",
+  },
+  {
+    label: "Pièces jointes",
+    value: "Sécurisées",
+    trend: "Bucket privé et accès signé par dossier",
+    tone: "neutral",
+  },
+  {
+    label: "Pilotage SLA",
+    value: "Actif",
+    trend: "Relances et escalades journalisées",
+    tone: "warning",
+  },
+] as const;
+
+const inboxPreviewItems = [
+  {
+    id: "REQ-OPS-041",
+    status: "in_review",
+    priority: "critical",
+    title: "Validation CAPEX site Nord",
+    typeName: "Achat / investissement",
+    department: "Opérations",
+    requester: "Responsable maintenance",
+    amount: "18 400 EUR",
+    currentStep: "Direction opérations",
+    dueLabel: "Échéance aujourd’hui",
+  },
+  {
+    id: "REQ-HR-019",
+    status: "needs_changes",
+    priority: "high",
+    title: "Mise à jour du parcours d’intégration RH",
+    typeName: "Demande RH",
+    department: "Ressources humaines",
+    requester: "Talent acquisition",
+    amount: null,
+    currentStep: "Retour demandeur",
+    dueLabel: "Attente de compléments",
+  },
+  {
+    id: "REQ-FIN-077",
+    status: "submitted",
+    priority: "normal",
+    title: "Paiement fournisseur maintenance Q1",
+    typeName: "Paiement",
+    department: "Finance",
+    requester: "Comptabilité",
+    amount: "6 250 EUR",
+    currentStep: "Validation finance",
+    dueLabel: "SLA 24 h",
+  },
+] as const;
+
+const launchModules = [
+  {
+    icon: "workflow",
+    title: "Demandes structurées",
+    description:
+      "Chaque demande part d’un type métier, de champs dynamiques et d’un workflow associé.",
+    detail:
+      "Le catalogue ne dépend plus du code front pour évoluer.",
+  },
+  {
+    icon: "file-check",
+    title: "Approbations pilotées",
+    description:
+      "Les étapes actives, retours demandeur, rejets et validations restent attachés au dossier.",
+    detail:
+      "Les CTA ouvrent directement le bon écran d’action.",
+  },
+  {
+    icon: "bell",
+    title: "Notifications unifiées",
+    description:
+      "In-app, mentions et emails immédiats suivent le même moteur de diffusion.",
+    detail:
+      "Le centre notifications reflète l’état réel côté base.",
+  },
+  {
+    icon: "chart",
+    title: "Reporting exploitable",
+    description:
+      "Les tableaux de bord remontent charge, throughput et alertes SLA pour le pilotage interne.",
+    detail:
+      "Le reporting sert l’exploitation, pas un simple décor de lancement.",
+  },
+  {
+    icon: "fingerprint",
+    title: "Audit et traçabilité",
+    description:
+      "Commentaires système, timeline et journal d’événements gardent la preuve de chaque action.",
+    detail:
+      "Chaque décision est historisée au niveau dossier et workflow.",
+  },
+  {
+    icon: "shield",
+    title: "Socle interne sécurisé",
+    description:
+      "Auth Supabase, RLS, stockage privé et service role côté serveur encadrent les accès.",
+    detail:
+      "Le produit est pensé pour une équipe interne connectée, pas pour un mode visiteur.",
+  },
+] as const;
+
+const launchStackChoices = [
+  {
+    icon: "layout",
+    title: "Next.js en frontal et API",
+    description:
+      "Le cockpit, les formulaires et les endpoints métier vivent dans la même base applicative.",
+  },
+  {
+    icon: "database",
+    title: "Supabase pour auth, base et realtime",
+    description:
+      "Le workflow, les messages, notifications et pièces jointes s’appuient sur Postgres et Realtime.",
+  },
+  {
+    icon: "mail",
+    title: "Emails transactionnels via Resend",
+    description:
+      "Les notifications serveur partent sans dépendre d’un client email local ou du cron.",
+  },
+  {
+    icon: "clock",
+    title: "Scheduler externe simple",
+    description:
+      "cron-job.org appelle un endpoint idempotent qui traite rappels, escalades et journalisation.",
+  },
+] as const;
+
+const launchRequestTypes = [
+  {
+    id: "budget",
+    name: "Achat / investissement",
+    description:
+      "Demande CAPEX, renouvellement matériel, investissement local ou besoin d’achat cadré.",
+    averageSlaHours: 48,
+    department: "Opérations",
+    accent: "teal",
+  },
+  {
+    id: "payment",
+    name: "Paiement fournisseur",
+    description:
+      "Validation de règlement avec justificatifs, montant et circuit finance associé.",
+    averageSlaHours: 24,
+    department: "Finance",
+    accent: "sand",
+  },
+  {
+    id: "repair",
+    name: "Intervention maintenance",
+    description:
+      "Réparation, incident ou demande de remise en état avec urgence et impact terrain.",
+    averageSlaHours: 12,
+    department: "Maintenance",
+    accent: "coral",
+  },
+  {
+    id: "people",
+    name: "Demande RH / people ops",
+    description:
+      "Validation onboarding, équipement collaborateur ou action RH nécessitant approbation.",
+    averageSlaHours: 36,
+    department: "RH",
+    accent: "ink",
+  },
+] as const;
+
+const launchWorkflowTemplates = [
+  {
+    id: "tpl-ops",
+    name: "Validation hiérarchique + finance",
+    summary:
+      "Circuit court pour les demandes engageant un budget ou un paiement.",
+    coverage: "Achats et finance",
+    steps: [
+      { id: "1", name: "Manager", assigneeLabel: "Responsable équipe", rule: "manager_requester" },
+      { id: "2", name: "Finance", assigneeLabel: "Référent finance", rule: "role_finance" },
+      { id: "3", name: "Clôture", assigneeLabel: "Système", rule: "system_finalize" },
+    ],
+  },
+  {
+    id: "tpl-maint",
+    name: "Opérations terrain",
+    summary:
+      "Circuit rapide pour intervention, maintenance et validation locale.",
+    coverage: "Maintenance",
+    steps: [
+      { id: "1", name: "Dispatch", assigneeLabel: "Coordination ops", rule: "role_ops" },
+      { id: "2", name: "Validation", assigneeLabel: "Manager site", rule: "manager_requester" },
+    ],
+  },
+  {
+    id: "tpl-people",
+    name: "People ops",
+    summary:
+      "Validation croisée RH et manager pour les demandes liées aux collaborateurs.",
+    coverage: "RH",
+    steps: [
+      { id: "1", name: "Manager", assigneeLabel: "Manager demandeur", rule: "manager_requester" },
+      { id: "2", name: "RH", assigneeLabel: "Référent RH", rule: "role_hr" },
+    ],
+  },
+] as const;
+
+const launchAutomationRules = [
+  {
+    id: "notif",
+    name: "Notification d’étape active",
+    status: "active",
+    trigger: "Nouvelle étape en attente",
+    action: "Alerte in-app + email au prochain approbateur",
+  },
+  {
+    id: "mention",
+    name: "Mention messagerie",
+    status: "active",
+    trigger: "Mention dans un message de dossier",
+    action: "Notification ciblée + ouverture rapide de la conversation",
+  },
+  {
+    id: "sla",
+    name: "Relance SLA",
+    status: "active",
+    trigger: "Échéance dépassée ou proche",
+    action: "Relance, escalade et journalisation du run cron",
+  },
+] as const;
+
+const launchAuditTimeline = [
+  {
+    id: "1",
+    actor: "Julien A.",
+    action: "Demande approuvée",
+    detail: "Passage à l’étape finance après validation opérations.",
+    at: "10:14",
+  },
+  {
+    id: "2",
+    actor: "Système",
+    action: "Notification envoyée",
+    detail: "Email immédiat transmis au prochain approbateur.",
+    at: "10:15",
+  },
+  {
+    id: "3",
+    actor: "Heritiana R.",
+    action: "Commentaire ajouté",
+    detail: "Pièce jointe complémentaire et précision du montant demandées.",
+    at: "10:19",
+  },
+] as const;
+
+const launchDeliveryPhases = [
+  {
+    phase: "V1",
+    title: "Exploitation interne",
+    description:
+      "Demandes, workflows, admin, notifications, messages et reporting activés pour l’usage quotidien.",
+  },
+  {
+    phase: "V1.1",
+    title: "Durcissement opérationnel",
+    description:
+      "Rotation de secrets, monitoring, contrôles de config et automatisation des vérifications récurrentes.",
+  },
+  {
+    phase: "V1.2",
+    title: "Montée en charge métier",
+    description:
+      "Nouveaux types de demandes, indicateurs avancés et rationalisation des circuits d’approbation.",
+  },
+] as const;
 
 export default function Home() {
   return (
@@ -98,7 +376,7 @@ export default function Home() {
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  {dashboardMetrics.map((metric) => (
+                  {heroMetrics.map((metric) => (
                     <MetricCard key={metric.label} {...metric} />
                   ))}
                 </div>
@@ -167,7 +445,7 @@ export default function Home() {
                   </div>
 
                   <div className="mt-4 space-y-3">
-                    {approvalInbox.map((item) => (
+                    {inboxPreviewItems.map((item) => (
                       <InboxRow key={item.id} item={item} />
                     ))}
                   </div>
@@ -179,7 +457,7 @@ export default function Home() {
                       Workflow live
                     </p>
                     <div className="mt-4 space-y-4">
-                      {workflowTemplates[0].steps.map((step, index) => (
+                      {launchWorkflowTemplates[0].steps.map((step, index) => (
                         <div
                           key={step.id}
                           className="flex items-start gap-3"
@@ -203,7 +481,7 @@ export default function Home() {
                       Historique du jour
                     </p>
                     <div className="mt-4 space-y-4">
-                      {auditTimeline.slice(0, 3).map((event) => (
+                      {launchAuditTimeline.slice(0, 3).map((event) => (
                         <div
                           key={event.id}
                           className="border-l border-[color:var(--line)] pl-4"
@@ -239,7 +517,7 @@ export default function Home() {
             />
 
             <div className="mt-6 grid gap-4 md:grid-cols-2">
-              {platformModules.map((module) => (
+              {launchModules.map((module) => (
                 <FeatureCard key={module.title} module={module} />
               ))}
             </div>
@@ -257,7 +535,7 @@ export default function Home() {
             />
 
             <div className="mt-6 space-y-3">
-              {stackChoices.map((item) => (
+              {launchStackChoices.map((item) => (
                 <StackCard key={item.title} item={item} />
               ))}
             </div>
@@ -297,7 +575,7 @@ export default function Home() {
             />
 
             <div className="mt-6 grid gap-4 md:grid-cols-2">
-              {requestTypes.map((requestType) => (
+              {launchRequestTypes.map((requestType) => (
                 <RequestTypeCard key={requestType.id} requestType={requestType} />
               ))}
             </div>
@@ -307,7 +585,7 @@ export default function Home() {
                 Modèles de workflow
               </p>
               <div className="mt-4 grid gap-3 md:grid-cols-3">
-                {workflowTemplates.map((template) => (
+                {launchWorkflowTemplates.map((template) => (
                   <div
                     key={template.id}
                     className="rounded-2xl border border-[color:var(--line)] bg-[color:var(--surface)] p-4"
@@ -339,7 +617,7 @@ export default function Home() {
                 Règles actives
               </p>
               <div className="mt-4 space-y-3">
-                {automationRules.map((rule) => (
+                {launchAutomationRules.map((rule) => (
                   <div
                     key={rule.id}
                     className="rounded-2xl border border-[color:var(--line)] bg-white/80 p-4"
@@ -372,7 +650,7 @@ export default function Home() {
                 Journal d&apos;activité
               </p>
               <div className="mt-4 space-y-4">
-                {auditTimeline.map((event) => (
+                {launchAuditTimeline.map((event) => (
                   <div
                     key={event.id}
                     className="flex gap-3 border-b border-[color:var(--line)] pb-4 last:border-b-0 last:pb-0"
@@ -406,7 +684,7 @@ export default function Home() {
           />
 
           <div className="mt-6 grid gap-4 lg:grid-cols-3">
-            {deliveryPhases.map((item) => (
+            {launchDeliveryPhases.map((item) => (
               <div
                 key={item.phase}
                 className="rounded-[26px] border border-[color:var(--line)] bg-[color:var(--surface)] p-5"
@@ -521,7 +799,7 @@ function MiniStat({
 function InboxRow({
   item,
 }: {
-  item: (typeof approvalInbox)[number];
+  item: (typeof inboxPreviewItems)[number];
 }) {
   const statusClassName = {
     submitted: "bg-[color:var(--surface-strong)] text-[color:var(--foreground)]",
@@ -581,7 +859,7 @@ function InboxRow({
 function FeatureCard({
   module,
 }: {
-  module: (typeof platformModules)[number];
+  module: (typeof launchModules)[number];
 }) {
   const Icon = {
     workflow: Workflow,
@@ -613,7 +891,7 @@ function FeatureCard({
 function StackCard({
   item,
 }: {
-  item: (typeof stackChoices)[number];
+  item: (typeof launchStackChoices)[number];
 }) {
   const Icon = {
     layout: LayoutDashboard,
@@ -642,7 +920,7 @@ function StackCard({
 function RequestTypeCard({
   requestType,
 }: {
-  requestType: (typeof requestTypes)[number];
+  requestType: (typeof launchRequestTypes)[number];
 }) {
   const accentClassName = {
     teal: "bg-[color:var(--brand-soft)]",

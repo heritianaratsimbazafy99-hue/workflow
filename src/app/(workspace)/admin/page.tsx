@@ -25,7 +25,7 @@ export default async function AdminPage() {
       <div className="rounded-[26px] border border-[color:var(--line)] bg-[color:var(--surface-strong)] px-5 py-4 text-sm text-[color:var(--foreground)]">
         <div className="flex items-center gap-2 font-medium">
           <Settings2 className="h-4 w-4" />
-          Runtime {data.mode === "live" ? "Supabase live" : "démo"}
+          Runtime {data.mode === "live" ? "Supabase live" : "Configuration requise"}
         </div>
         <p className="mt-2 leading-6 text-[color:var(--muted)]">
           Cet espace couvre les lots 4 à 6 du plan: administration socle, builder

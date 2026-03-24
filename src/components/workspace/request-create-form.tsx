@@ -116,7 +116,7 @@ export function RequestCreateForm({
       });
 
       const data = (await response.json()) as {
-        mode: "demo" | "live";
+        mode?: "live";
         reference?: string;
         note?: string;
         error?: string;
@@ -128,7 +128,7 @@ export function RequestCreateForm({
         return;
       }
 
-      if (data.mode === "live" && data.reference) {
+      if (data.reference) {
         if (selectedFiles.length > 0) {
           try {
             await uploadRequestAttachments(data.reference, selectedFiles);
@@ -142,10 +142,8 @@ export function RequestCreateForm({
         return;
       }
 
-      setFeedback(
-        data.note ??
-          "Mode démo actif. La vraie persistance démarre dès que Supabase Auth est branché.",
-      );
+      setFeedbackTone("error");
+      setFeedback(data.note ?? "Aucune référence de dossier n’a été renvoyée par le serveur.");
     } catch {
       setFeedbackTone("error");
       setFeedback("Erreur réseau pendant la création de la demande.");
@@ -403,7 +401,7 @@ export function RequestCreateForm({
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="space-y-2">
           <div className="rounded-full border border-[color:var(--line)] bg-white/80 px-4 py-2 text-sm text-[color:var(--muted)]">
-            Runtime {mode === "live" ? "Supabase live" : "Démo locale"}
+            Runtime {mode === "live" ? "Supabase connecté" : "Configuration requise"}
           </div>
           <p className="text-sm text-[color:var(--muted)]">
             Après soumission, le moteur ouvre le dossier, instancie les étapes et notifie le

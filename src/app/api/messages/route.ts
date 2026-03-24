@@ -3,10 +3,8 @@ import { z } from "zod";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { dispatchNotifications } from "@/lib/notifications/service";
 import {
-  canUseSupabaseLiveMode,
-  createDemoMessage,
+  getLiveModeIssue,
   deriveUserLabel,
-  getDemoConversationMessages,
   mapMessageRowToView,
   resolveRuntimeActor,
   truncateText,
@@ -60,13 +58,10 @@ export async function GET(request: Request) {
   }
 
   const actor = await resolveRuntimeActor();
+  const liveModeIssue = getLiveModeIssue(actor);
 
-  if (!canUseSupabaseLiveMode(actor)) {
-    return NextResponse.json({
-      mode: "demo",
-      actor,
-      items: getDemoConversationMessages(conversationId),
-    });
+  if (liveModeIssue) {
+    return NextResponse.json({ error: liveModeIssue.message }, { status: liveModeIssue.status });
   }
 
   const service = createSupabaseServiceRoleClient();
@@ -155,6 +150,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const actor = await resolveRuntimeActor();
+  const liveModeIssue = getLiveModeIssue(actor);
 
   let payload: z.infer<typeof createMessageSchema>;
 
@@ -167,14 +163,8 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!canUseSupabaseLiveMode(actor)) {
-    return NextResponse.json({
-      mode: "demo",
-      actor,
-      item: createDemoMessage(actor, payload.conversationId, payload.body),
-      notificationsInserted: 0,
-      emailsSent: 0,
-    });
+  if (liveModeIssue) {
+    return NextResponse.json({ error: liveModeIssue.message }, { status: liveModeIssue.status });
   }
 
   const service = createSupabaseServiceRoleClient();

@@ -56,7 +56,7 @@ export default async function MessagesPage({
           label="Emails immédiats prêts"
           value={data.mode === "live" ? "LIVE" : "ON"}
           icon={Mail}
-          detail={data.mode === "live" ? "Serveur branché" : "Mode démonstration"}
+          detail={data.mode === "live" ? "Serveur branché" : "Configuration en attente"}
         />
       </div>
 

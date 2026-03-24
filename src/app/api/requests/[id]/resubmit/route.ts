@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { getLiveModeIssue, resolveRuntimeActor } from "@/lib/workflow/runtime";
 import { resubmitWorkflowRequest } from "@/lib/workflow/engine";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +14,8 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+  const actor = await resolveRuntimeActor();
+  const liveModeIssue = getLiveModeIssue(actor);
   let payload: z.infer<typeof resubmitSchema>;
 
   try {
@@ -22,6 +25,10 @@ export async function POST(
       { error: "Invalid request resubmission payload." },
       { status: 400 },
     );
+  }
+
+  if (liveModeIssue) {
+    return NextResponse.json({ error: liveModeIssue.message }, { status: liveModeIssue.status });
   }
 
   try {

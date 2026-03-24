@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { getLiveModeIssue, resolveRuntimeActor } from "@/lib/workflow/runtime";
 import { createWorkflowRequest } from "@/lib/workflow/engine";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +16,8 @@ const createRequestSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const actor = await resolveRuntimeActor();
+  const liveModeIssue = getLiveModeIssue(actor);
   let payload: z.infer<typeof createRequestSchema>;
 
   try {
@@ -24,6 +27,10 @@ export async function POST(request: Request) {
       { error: "Invalid request creation payload." },
       { status: 400 },
     );
+  }
+
+  if (liveModeIssue) {
+    return NextResponse.json({ error: liveModeIssue.message }, { status: liveModeIssue.status });
   }
 
   try {

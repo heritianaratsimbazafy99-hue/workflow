@@ -7,7 +7,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { hasPublicSupabaseEnv } from "@/lib/supabase/config";
 import type { CurrentUser, NotificationItem } from "@/lib/workflow/types";
 
-type RuntimeMode = "demo" | "live" | "connecting";
+type RuntimeMode = "idle" | "live" | "connecting";
 
 export function RealtimeNotifications({
   currentUser,
@@ -18,7 +18,7 @@ export function RealtimeNotifications({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [items, setItems] = useState(initialItems);
-  const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>("demo");
+  const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>("idle");
   const [unreadCount, setUnreadCount] = useState(
     initialItems.filter((item) => !item.isRead).length,
   );
@@ -36,7 +36,7 @@ export function RealtimeNotifications({
       }
 
       const data = (await response.json()) as {
-        mode: "demo" | "live";
+        mode: "live";
         unreadCount?: number;
         items?: NotificationItem[];
       };
@@ -49,7 +49,7 @@ export function RealtimeNotifications({
       );
       setRuntimeMode(data.mode);
     } catch {
-      setRuntimeMode("demo");
+      setRuntimeMode("idle");
     }
   });
 
@@ -73,7 +73,7 @@ export function RealtimeNotifications({
       } = await supabase.auth.getUser();
 
       if (!user || isDisposed) {
-        setRuntimeMode((current) => (current === "live" ? current : "demo"));
+        setRuntimeMode((current) => (current === "live" ? current : "idle"));
         return;
       }
 
@@ -184,7 +184,7 @@ export function RealtimeNotifications({
                 ? "Supabase live"
                 : runtimeMode === "connecting"
                   ? "Connexion"
-                  : "Démo locale"}
+                  : "Veille"}
             </span>
           </div>
 

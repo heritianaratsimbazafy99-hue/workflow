@@ -4,9 +4,7 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { dispatchNotifications } from "@/lib/notifications/service";
 import { mapNotificationRowsToItems, type NotificationViewRow } from "@/lib/notifications/view";
 import {
-  canUseSupabaseLiveMode,
-  createDemoNotification,
-  getDemoNotifications,
+  getLiveModeIssue,
   resolveRuntimeActor,
 } from "@/lib/workflow/runtime";
 
@@ -43,15 +41,10 @@ export async function GET(request: Request) {
   const limit = Number.isFinite(requestedLimit)
     ? Math.max(1, Math.min(50, Math.round(requestedLimit)))
     : 8;
+  const liveModeIssue = getLiveModeIssue(actor);
 
-  if (!canUseSupabaseLiveMode(actor)) {
-    const items = getDemoNotifications(actor.id).slice(0, limit);
-    return NextResponse.json({
-      mode: "demo",
-      actor,
-      items,
-      unreadCount: items.filter((item) => !item.isRead).length,
-    });
+  if (liveModeIssue) {
+    return NextResponse.json({ error: liveModeIssue.message }, { status: liveModeIssue.status });
   }
 
   const service = createSupabaseServiceRoleClient();
@@ -88,6 +81,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const actor = await resolveRuntimeActor();
+  const liveModeIssue = getLiveModeIssue(actor);
 
   let payload: z.infer<typeof createNotificationsSchema>;
 
@@ -100,23 +94,8 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!canUseSupabaseLiveMode(actor)) {
-    return NextResponse.json({
-      mode: "demo",
-      actor,
-      items: payload.userIds.map((userId) =>
-        createDemoNotification({
-          userId,
-          title: payload.title,
-          body: payload.body,
-          channel: payload.channel,
-          category: payload.category,
-          requestReference: payload.requestReference ?? null,
-        }),
-      ),
-      notificationsInserted: payload.userIds.length,
-      emailsSent: payload.sendEmail ? payload.userIds.length : 0,
-    });
+  if (liveModeIssue) {
+    return NextResponse.json({ error: liveModeIssue.message }, { status: liveModeIssue.status });
   }
 
   const service = createSupabaseServiceRoleClient();
@@ -153,6 +132,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   const actor = await resolveRuntimeActor();
+  const liveModeIssue = getLiveModeIssue(actor);
 
   let payload: z.infer<typeof markReadSchema>;
 
@@ -165,12 +145,8 @@ export async function PATCH(request: Request) {
     );
   }
 
-  if (!canUseSupabaseLiveMode(actor)) {
-    return NextResponse.json({
-      mode: "demo",
-      actor,
-      updatedIds: payload.ids,
-    });
+  if (liveModeIssue) {
+    return NextResponse.json({ error: liveModeIssue.message }, { status: liveModeIssue.status });
   }
 
   const service = createSupabaseServiceRoleClient();
