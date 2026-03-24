@@ -19,7 +19,7 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <section className="relative overflow-hidden rounded-[34px] border border-[color:var(--line)] bg-[linear-gradient(135deg,rgba(255,255,255,0.92),rgba(255,247,235,0.88))] px-6 py-6 shadow-[var(--shadow-soft)]">
+    <section className="relative overflow-hidden rounded-[34px] border border-[color:var(--line)] bg-[linear-gradient(135deg,rgba(252,247,240,0.96),rgba(239,226,206,0.94))] px-6 py-6 shadow-[var(--shadow-soft)]">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-[radial-gradient(circle_at_top_left,rgba(15,143,113,0.14),transparent_48%)]" />
       <div className="relative flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
         <div className="max-w-3xl">
@@ -48,7 +48,7 @@ export function SurfaceCard({
 }) {
   return (
     <section
-      className={`rounded-[28px] border border-[color:var(--line)] bg-[linear-gradient(180deg,rgba(255,251,244,0.92),rgba(255,255,255,0.78))] p-5 shadow-[0_12px_40px_rgba(19,33,31,0.06)] backdrop-blur-sm ${className}`}
+      className={`rounded-[28px] border border-[color:var(--line)] bg-[linear-gradient(180deg,rgba(244,234,220,0.94),rgba(252,247,240,0.82))] p-5 shadow-[0_12px_40px_rgba(19,33,31,0.06)] backdrop-blur-sm ${className}`}
     >
       {children}
     </section>
@@ -180,7 +180,7 @@ export function SummaryStat({
   valueClassName?: string;
 }) {
   return (
-    <div className="min-w-0 rounded-[24px] border border-[color:var(--line)] bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(255,247,235,0.76))] p-4 shadow-[0_8px_26px_rgba(19,33,31,0.04)]">
+    <div className="min-w-0 rounded-[24px] border border-[color:var(--line)] bg-[linear-gradient(180deg,rgba(252,247,240,0.92),rgba(239,226,206,0.82))] p-4 shadow-[0_8px_26px_rgba(19,33,31,0.04)]">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm text-[color:var(--muted)]">{label}</p>

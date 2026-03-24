@@ -203,7 +203,7 @@ export function RealtimeNotifications({
           ref={panelRef}
           role="dialog"
           aria-label="Flux de notifications"
-          className="absolute right-0 top-full z-50 mt-3 w-[min(26rem,calc(100vw-1.5rem))] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-[30px] border border-[color:var(--line)] bg-[linear-gradient(180deg,rgba(255,250,245,0.98),rgba(255,255,255,0.98))] shadow-[0_24px_64px_rgba(19,33,31,0.18)]"
+          className="absolute right-0 top-full z-50 mt-3 w-[min(26rem,calc(100vw-1.5rem))] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-[30px] border border-[color:var(--line)] bg-[linear-gradient(180deg,rgba(245,236,223,0.99),rgba(252,247,240,0.99))] shadow-[0_24px_64px_rgba(19,33,31,0.18)]"
         >
           <div className="border-b border-[color:var(--line)] px-4 py-4 sm:px-5">
             <div className="flex items-start justify-between gap-4">
