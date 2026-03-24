@@ -29,6 +29,7 @@ Base produit pour une application interne de gestion des demandes et workflows d
 - un centre `/notifications` avec preferences in-app/email/digest
 - un espace `/reports` avec exports CSV, charge approbateur et repartitions live
 - une deuxieme migration pour notifications, SLA et reporting dans `supabase/migrations/20260324003000_notifications_reporting_sla.sql`
+- une migration Storage pour le bucket prive des pieces jointes dans `supabase/migrations/20260324014000_request_attachments_storage.sql`
 
 ## Demarrage local
 
@@ -59,6 +60,7 @@ npm run dev
 - `http://localhost:3000/notifications` pour le centre de preferences
 - `http://localhost:3000/reports` pour le reporting
 - `http://localhost:3000/admin` pour l'administration
+- `http://localhost:3000/requests/REQ-...` pour ajouter et ouvrir les pieces jointes
 
 ## Scripts utiles
 
@@ -89,6 +91,13 @@ Le cron appelle `GET /api/cron/process-reminders`.
 - l'endpoint est conserve et sera rebranche plus tard avec `Vercel Pro` ou un scheduler externe
 - la logique metier ne doit pas vivre dans le scheduler: il ne fait que reveiller le moteur
 - la logique SLA live est deja prete: rappels proches, escalades hors SLA et audit `workflow_sla_events`
+
+## Pieces jointes
+
+- bucket prive Supabase Storage: `request-files`
+- upload securise via `/api/requests/[id]/attachments`
+- ouverture securisee via `/api/requests/[id]/attachments/[attachmentId]`
+- les fichiers restent prives et passent par une URL signee courte cote serveur
 
 ## Etape suivante recommandee
 

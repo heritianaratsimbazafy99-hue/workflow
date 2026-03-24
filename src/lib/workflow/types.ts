@@ -164,6 +164,8 @@ export const requestAttachmentSchema = z.object({
   size: z.string(),
   uploadedBy: z.string(),
   uploadedAt: z.string(),
+  mimeType: z.string().nullable().default(null),
+  downloadPath: z.string().nullable().default(null),
 });
 
 export const conversationMessageSchema = z.object({

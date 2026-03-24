@@ -8,6 +8,7 @@ import {
   ShieldCheck,
   Users,
 } from "lucide-react";
+import { RequestAttachmentsPanel } from "@/components/workspace/request-attachments-panel";
 import { RequestDecisionPanel } from "@/components/workspace/request-decision-panel";
 import { getRequestDetailData } from "@/lib/workflow/engine";
 import {
@@ -33,7 +34,7 @@ export default async function RequestDetailPage({
     notFound();
   }
 
-  const { request, conversation, messages, history, canAct, currentApproverLabel } = detail;
+  const { actor, request, conversation, messages, history, canAct, currentApproverLabel } = detail;
 
   return (
     <div className="space-y-6">
@@ -276,21 +277,11 @@ export default async function RequestDetailPage({
               title="Pièces jointes"
               description="Les fichiers sont centralisés dans le dossier."
             />
-            <div className="space-y-3">
-              {request.attachments.map((attachment) => (
-                <div
-                  key={attachment.id}
-                  className="rounded-[22px] border border-[color:var(--line)] bg-white/80 p-4"
-                >
-                  <p className="font-medium text-[color:var(--foreground)]">
-                    {attachment.name}
-                  </p>
-                  <p className="mt-1 text-sm text-[color:var(--muted)]">
-                    {attachment.size} · Ajouté par {attachment.uploadedBy} · {attachment.uploadedAt}
-                  </p>
-                </div>
-              ))}
-            </div>
+            <RequestAttachmentsPanel
+              requestReference={request.reference}
+              initialAttachments={request.attachments}
+              canUpload={actor.mode === "live"}
+            />
           </SurfaceCard>
 
           <SurfaceCard>

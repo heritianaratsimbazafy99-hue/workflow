@@ -22,6 +22,7 @@ import {
   type RuntimeActor,
   type RuntimeMode,
 } from "@/lib/workflow/runtime";
+import { findAccessibleRequestByReferenceOrId, type WorkflowRequestRecord } from "@/lib/workflow/request-access";
 import type {
   AuditEvent,
   ConversationMessage,
@@ -104,35 +105,7 @@ type RequestTypeFieldDefinitionRow = {
   is_active: boolean;
 };
 
-type RequestRow = {
-  id: string;
-  reference: string;
-  requester_id: string;
-  request_type_id: string;
-  workflow_template_id: string | null;
-  title: string;
-  description: string;
-  amount: number | null;
-  currency: string;
-  priority: RequestPriority;
-  status:
-    | "draft"
-    | "submitted"
-    | "in_review"
-    | "needs_changes"
-    | "approved"
-    | "rejected"
-    | "completed"
-    | "cancelled";
-  current_step_order: number | null;
-  current_assignee_id: string | null;
-  due_at: string | null;
-  submitted_at: string | null;
-  decided_at: string | null;
-  metadata: Record<string, unknown> | null;
-  created_at: string;
-  updated_at: string;
-};
+type RequestRow = WorkflowRequestRecord;
 
 type RequestStepInstanceRow = {
   id: string;
@@ -163,6 +136,7 @@ type RequestAttachmentRow = {
   request_id: string;
   uploader_id: string | null;
   file_name: string;
+  mime_type: string | null;
   size_bytes: number | null;
   created_at: string;
 };
@@ -738,7 +712,7 @@ export async function getRequestDetailData(
   }
 
   const service = createSupabaseServiceRoleClient();
-  const requestRow = await findRequestByReferenceOrId(service, referenceOrId);
+  const requestRow = await findAccessibleRequestByReferenceOrId(service, actor, referenceOrId);
 
   if (!requestRow) {
     return null;
@@ -796,7 +770,7 @@ export async function getRequestDetailData(
       .order("created_at", { ascending: false }),
     service
       .from("request_attachments")
-      .select("id, request_id, uploader_id, file_name, size_bytes, created_at")
+      .select("id, request_id, uploader_id, file_name, mime_type, size_bytes, created_at")
       .eq("request_id", requestRow.id)
       .order("created_at", { ascending: false }),
     service
@@ -969,6 +943,8 @@ export async function getRequestDetailData(
         ? deriveUserLabel(allProfiles[attachment.uploader_id], { compact: true })
         : "Collaborateur",
       uploadedAt: formatClockOrDate(attachment.created_at),
+      mimeType: attachment.mime_type,
+      downloadPath: `/api/requests/${requestRow.reference}/attachments/${attachment.id}`,
     })),
     customFields,
     conversationId: conversation?.id ?? "",
@@ -1270,7 +1246,11 @@ export async function applyWorkflowDecision(
   }
 
   const service = createSupabaseServiceRoleClient();
-  const request = await findRequestByReferenceOrId(service, input.requestReferenceOrId);
+  const request = await findAccessibleRequestByReferenceOrId(
+    service,
+    actor,
+    input.requestReferenceOrId,
+  );
 
   if (!request) {
     throw new Error("Request not found.");
@@ -1716,18 +1696,6 @@ function stepMatchesRequest(
   return true;
 }
 
-async function findRequestByReferenceOrId(
-  service: ReturnType<typeof createSupabaseServiceRoleClient>,
-  referenceOrId: string,
-) {
-  const query = service.from("requests").select("*");
-  const { data } = isUuid(referenceOrId)
-    ? await query.eq("id", referenceOrId).maybeSingle()
-    : await query.eq("reference", referenceOrId).maybeSingle();
-
-  return (data as RequestRow | null) ?? null;
-}
-
 function normalizeRequestStatus(
   status: RequestRow["status"],
 ): RequestDetail["status"] {
@@ -2106,11 +2074,6 @@ function uniqueValues<T>(items: T[]) {
   return [...new Set(items)];
 }
 
-function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    value,
-  );
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);

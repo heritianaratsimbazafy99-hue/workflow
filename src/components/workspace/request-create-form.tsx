@@ -2,7 +2,8 @@
 
 import { useMemo, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Bot, SendHorizonal, Waypoints } from "lucide-react";
+import { Bot, Paperclip, SendHorizonal, Waypoints } from "lucide-react";
+import { uploadRequestAttachments } from "@/lib/workflow/attachments-client";
 import type {
   FormSection,
   RequestPriority,
@@ -46,6 +47,7 @@ export function RequestCreateForm({
   const [amount, setAmount] = useState("");
   const [priority, setPriority] = useState<RequestPriority>("normal");
   const [dynamicFields, setDynamicFields] = useState<Record<string, string | boolean>>({});
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -124,6 +126,14 @@ export function RequestCreateForm({
       }
 
       if (data.mode === "live" && data.reference) {
+        if (selectedFiles.length > 0) {
+          try {
+            await uploadRequestAttachments(data.reference, selectedFiles);
+          } catch {
+            // The request already exists; the user can retry uploads from the dossier.
+          }
+        }
+
         router.push(`/requests/${data.reference}`);
         router.refresh();
         return;
@@ -225,6 +235,33 @@ export function RequestCreateForm({
               placeholder="Contexte, impact business, urgence, éléments de décision..."
               className="w-full rounded-2xl border border-[color:var(--line)] bg-[color:var(--surface)] px-4 py-3 text-sm leading-7 outline-none placeholder:text-[color:var(--muted)]"
             />
+          </Field>
+
+          <Field label="Pièces jointes" className="md:col-span-2">
+            <div className="rounded-[22px] border border-[color:var(--line)] bg-[color:var(--surface)]/80 p-4">
+              <input
+                type="file"
+                multiple
+                onChange={(event) =>
+                  setSelectedFiles(Array.from(event.currentTarget.files ?? []))
+                }
+                className="block w-full text-sm text-[color:var(--muted)] file:mr-4 file:rounded-full file:border-0 file:bg-[color:var(--foreground)] file:px-4 file:py-2 file:text-sm file:font-medium file:text-[color:var(--surface-strong)]"
+              />
+              {selectedFiles.length > 0 ? (
+                <div className="mt-3 rounded-[18px] border border-[color:var(--line)] bg-white/85 px-4 py-3 text-sm text-[color:var(--foreground)]">
+                  <div className="flex items-center gap-2">
+                    <Paperclip className="h-4 w-4" />
+                    {selectedFiles.length} fichier(s) seront transféré(s) juste après la création
+                    du dossier.
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-3 text-sm leading-6 text-[color:var(--muted)]">
+                  PDF, images et documents bureautiques. Le dossier restera créé même si
+                  tu préfères ajouter les fichiers après soumission.
+                </p>
+              )}
+            </div>
           </Field>
 
           {activeFormSections.map((section) => (

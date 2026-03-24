@@ -13,6 +13,7 @@ Oui, on peut ajouter une messagerie.
 Le SQL fourni dans `supabase/migrations/20260323190000_init_workflow_core.sql` pose deja les tables `conversations`, `conversation_members`, `messages` et `message_reads`.
 Le SQL `supabase/migrations/20260323234500_expand_admin_forms_collab.sql` ajoute l'administration, les usernames, les champs dynamiques et les mentions.
 Le SQL `supabase/migrations/20260324003000_notifications_reporting_sla.sql` ajoute les preferences de notifications, le journal SLA et le reporting.
+Le SQL `supabase/migrations/20260324014000_request_attachments_storage.sql` cree le bucket prive `request-files` pour les pieces jointes.
 
 ## 2. Prerequis
 
@@ -45,6 +46,7 @@ Les migrations suivantes sont egalement a appliquer:
 
 - `/Users/heritiana/Documents/workflow/supabase/migrations/20260323234500_expand_admin_forms_collab.sql`
 - `/Users/heritiana/Documents/workflow/supabase/migrations/20260324003000_notifications_reporting_sla.sql`
+- `/Users/heritiana/Documents/workflow/supabase/migrations/20260324014000_request_attachments_storage.sql`
 
 Appliquer la migration localement:
 
@@ -105,6 +107,7 @@ Puis ouvrir:
 - `http://localhost:3000/notifications`
 - `http://localhost:3000/reports`
 - `http://localhost:3000/admin`
+- `http://localhost:3000/requests/REQ-...`
 
 Tester l'endpoint cron localement:
 
