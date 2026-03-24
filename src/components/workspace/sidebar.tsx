@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   BarChart3,
   BellRing,
+  Blocks,
   House,
   MessageSquareMore,
   Plus,
@@ -23,6 +24,11 @@ const navigation = [
     href: "/approvals",
     label: "Approvals",
     icon: ShieldCheck,
+  },
+  {
+    href: "/workflow-studio",
+    label: "Workflow Studio",
+    icon: Blocks,
   },
   {
     href: "/requests/new",

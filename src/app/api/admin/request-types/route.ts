@@ -31,18 +31,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid request type payload." }, { status: 400 });
   }
 
-  const { error } = await service.from("request_types").insert({
-    code: payload.code,
-    name: payload.name,
-    description: payload.description,
-    department_id: payload.departmentId ?? null,
-    default_sla_hours: payload.defaultSlaHours,
-    is_active: payload.isActive,
-  });
+  const { data, error } = await service
+    .from("request_types")
+    .insert({
+      code: payload.code,
+      name: payload.name,
+      description: payload.description,
+      department_id: payload.departmentId ?? null,
+      default_sla_hours: payload.defaultSlaHours,
+      is_active: payload.isActive,
+    })
+    .select("id")
+    .single();
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error || !data?.id) {
+    return NextResponse.json(
+      { error: error?.message ?? "Unable to create request type." },
+      { status: 500 },
+    );
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, requestTypeId: data.id });
 }

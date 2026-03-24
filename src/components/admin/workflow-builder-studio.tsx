@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition, type ReactNode } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Blocks,
   BriefcaseBusiness,
@@ -25,6 +25,7 @@ import { LabeledValue, SectionTitle, SurfaceCard } from "@/components/workspace/
 type WorkflowBuilderStudioProps = {
   data: AdminControlTowerData;
   initialTemplateId?: string | null;
+  initialRequestTypeId?: string | null;
 };
 
 type StepDraft = {
@@ -43,9 +44,11 @@ type StepDraft = {
 export function WorkflowBuilderStudio({
   data,
   initialTemplateId = null,
+  initialRequestTypeId = null,
 }: WorkflowBuilderStudioProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [feedback, setFeedback] = useState<string | null>(null);
   const [feedbackTone, setFeedbackTone] = useState<"success" | "error">("success");
   const [isPending, startTransition] = useTransition();
@@ -62,13 +65,22 @@ export function WorkflowBuilderStudio({
     [data.requestTypes],
   );
   const initialSelectedTemplate =
-    data.templates.find((template) => template.id === initialTemplateId) ?? data.templates[0] ?? null;
-  const [selectedRequestTypeId, setSelectedRequestTypeId] = useState(
-    initialSelectedTemplate?.requestTypeId ?? data.requestTypes[0]?.id ?? "",
+    data.templates.find((template) => template.id === initialTemplateId) ??
+    (initialRequestTypeId
+      ? data.templates.find((template) => template.requestTypeId === initialRequestTypeId)
+      : null) ??
+    data.templates[0] ??
+    null;
+  const [internalSelectedRequestTypeId, setInternalSelectedRequestTypeId] = useState(
+    initialSelectedTemplate?.requestTypeId ?? initialRequestTypeId ?? data.requestTypes[0]?.id ?? "",
   );
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
+  const [internalSelectedTemplateId, setInternalSelectedTemplateId] = useState<string | null>(
     initialSelectedTemplate?.id ?? null,
   );
+  const selectedRequestTypeId =
+    initialRequestTypeId ?? internalSelectedRequestTypeId;
+  const selectedTemplateId =
+    initialTemplateId ?? internalSelectedTemplateId;
   const [newTemplateName, setNewTemplateName] = useState("");
   const [newTemplateDescription, setNewTemplateDescription] = useState("");
 
@@ -108,13 +120,35 @@ export function WorkflowBuilderStudio({
     );
   }
 
+  function replaceStudioParams(next: {
+    requestTypeId?: string | null;
+    templateId?: string | null;
+  }) {
+    const params = new URLSearchParams(searchParams.toString());
+
+    if (next.requestTypeId) {
+      params.set("requestType", next.requestTypeId);
+    } else {
+      params.delete("requestType");
+    }
+
+    if (next.templateId) {
+      params.set("template", next.templateId);
+    } else {
+      params.delete("template");
+    }
+
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }
+
   function selectTemplate(templateId: string | null) {
-    setSelectedTemplateId(templateId);
+    setInternalSelectedTemplateId(templateId);
     const template = data.templates.find((item) => item.id === templateId) ?? null;
     const requestTypeId = template?.requestTypeId ?? selectedRequestTypeId;
 
     if (requestTypeId) {
-      setSelectedRequestTypeId(requestTypeId);
+      setInternalSelectedRequestTypeId(requestTypeId);
     }
 
     setNewStepDraft((current) => ({
@@ -127,21 +161,17 @@ export function WorkflowBuilderStudio({
             ""
           : current.approverDepartmentId,
     }));
-    const params = new URLSearchParams();
-
-    if (templateId) {
-      params.set("template", templateId);
-    }
-
-    const query = params.toString();
-    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    replaceStudioParams({
+      requestTypeId,
+      templateId,
+    });
   }
 
   function handleSelectRequestType(nextRequestTypeId: string) {
-    setSelectedRequestTypeId(nextRequestTypeId);
+    setInternalSelectedRequestTypeId(nextRequestTypeId);
     const firstMatchingTemplate =
       data.templates.find((template) => template.requestTypeId === nextRequestTypeId) ?? null;
-    setSelectedTemplateId(firstMatchingTemplate?.id ?? null);
+    setInternalSelectedTemplateId(firstMatchingTemplate?.id ?? null);
     setNewStepDraft(
       createEmptyStepDraft(
         (firstMatchingTemplate?.steps.length ?? 0) + 1,
@@ -149,14 +179,10 @@ export function WorkflowBuilderStudio({
       ),
     );
 
-    const params = new URLSearchParams();
-
-    if (firstMatchingTemplate?.id) {
-      params.set("template", firstMatchingTemplate.id);
-    }
-
-    const query = params.toString();
-    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    replaceStudioParams({
+      requestTypeId: nextRequestTypeId,
+      templateId: firstMatchingTemplate?.id ?? null,
+    });
   }
 
   function handleAsync(action: () => Promise<void>) {
@@ -212,7 +238,7 @@ export function WorkflowBuilderStudio({
     setFeedback("Flux créé. Tu peux maintenant composer ses étapes.");
     setNewTemplateName("");
     setNewTemplateDescription("");
-    setSelectedRequestTypeId(requestType.id);
+    setInternalSelectedRequestTypeId(requestType.id);
     selectTemplate(payload.templateId);
     router.refresh();
   }
@@ -278,8 +304,8 @@ export function WorkflowBuilderStudio({
       <div className="space-y-6">
         <SurfaceCard>
           <SectionTitle
-            title="Nouveau flux"
-            description="Choisis un type de demande, nomme le flux et laisse le studio générer le code technique."
+            title="3. Nouveau flux d’approbation"
+            description="Le type de demande sélectionné alimente automatiquement cette partie. Tu n’as plus qu’à nommer le flux et composer les étapes."
           />
           <div className="space-y-4">
             <FieldBlock label="Type de demande">

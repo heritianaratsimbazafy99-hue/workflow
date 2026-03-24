@@ -12,12 +12,12 @@ export default async function AdminPage() {
     <div className="space-y-6">
       <PageHeader
         eyebrow="Administration"
-        title="Contrôle des workflows et du référentiel"
-        description="Gère les rôles, les types de demandes, les champs dynamiques et les templates sans repasser par le SQL pour chaque ajustement."
+        title="Administration ops et référentiel"
+        description="Gère les rôles, les profils, la configuration email et les contrôles d’exploitation. La conception des types, formulaires et flux passe désormais par Workflow Studio."
         actions={
           <>
             <PillLink href="/workspace" label="Retour pilotage" />
-            <PillLink href="/admin/workflows" label="Studio workflow" />
+            <PillLink href="/workflow-studio" label="Workflow Studio" />
             <PillLink href="/requests/new" label="Nouvelle demande" tone="primary" />
           </>
         }
@@ -26,12 +26,10 @@ export default async function AdminPage() {
       <div className="rounded-[26px] border border-[color:var(--line)] bg-white/80 px-5 py-4 text-sm text-[color:var(--foreground)]">
         <p className="font-medium">Nouveau studio workflow</p>
         <p className="mt-2 leading-6 text-[color:var(--muted)]">
-          La création et l’édition des flux d’approbation passent désormais par une page dédiée :
-          choix du type, composition des étapes, sélection simplifiée des approbateurs et réglage
-          des SLA.
+          La création des types de demandes, des formulaires et des flux d’approbation passe désormais par un parcours unifié dans la sidebar : Workflow Studio.
         </p>
         <div className="mt-4">
-          <PillLink href="/admin/workflows" label="Ouvrir le studio dédié" tone="primary" />
+          <PillLink href="/workflow-studio" label="Ouvrir Workflow Studio" tone="primary" />
         </div>
       </div>
 
@@ -41,8 +39,7 @@ export default async function AdminPage() {
           Runtime {data.mode === "live" ? "Supabase live" : "Configuration requise"}
         </div>
         <p className="mt-2 leading-6 text-[color:var(--muted)]">
-          Cet espace couvre les lots 4 à 6 du plan: administration socle, builder
-          workflow v1 et formulaires dynamiques v1.
+          Cet espace reste dédié au socle d’administration et aux opérations. La configuration métier des demandes a été déplacée dans Workflow Studio pour éviter les doublons.
         </p>
       </div>
 
